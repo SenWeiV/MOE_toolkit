@@ -33,6 +33,25 @@ bash scripts/install-connector.sh \
   --host codex-cli
 ```
 
+OpenClaw users can install the same connector into a selected agent workspace:
+
+```bash
+bash scripts/install-connector.sh \
+  --server-url ${MOE_PUBLIC_BASE_URL} \
+  --api-key <YOUR_KEY> \
+  --host openclaw
+```
+
+If auto-discovery fails, pass the workspace explicitly:
+
+```bash
+bash scripts/install-connector.sh \
+  --server-url ${MOE_PUBLIC_BASE_URL} \
+  --api-key <YOUR_KEY> \
+  --host openclaw \
+  --openclaw-workspace ~/.openclaw/workspace-your-agent
+```
+
 Build a release package for other users:
 
 ```bash
@@ -47,6 +66,8 @@ bash install.sh \
   --api-key <YOUR_KEY> \
   --host codex-cli
 ```
+
+OpenClaw task artifacts download into the selected agent workspace under `MOE Outputs/`.
 
 ## Beta Ops
 

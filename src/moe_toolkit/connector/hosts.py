@@ -1,4 +1,4 @@
-"""Host integration helpers for Claude Code and Codex CLI."""
+"""Host integration helpers for Claude Code, Codex CLI, and OpenClaw."""
 
 from __future__ import annotations
 
@@ -7,6 +7,7 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
+from moe_toolkit.connector.openclaw import OpenClawHostAdapter
 from moe_toolkit.schemas.common import HostInstallResult
 
 SERVER_NAME = "moe_toolkit"

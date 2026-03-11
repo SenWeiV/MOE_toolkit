@@ -449,9 +449,17 @@ def create_app(
         current_settings: CloudSettings = Depends(get_settings),
     ) -> HTMLResponse:
         base_url = current_settings.public_base_url.rstrip("/")
-        install_command = (
+        codex_install_command = (
             f"curl -fsSL {base_url}/install.sh | "
             f"bash -s -- --server-url {base_url} --api-key &lt;YOUR_KEY&gt; --host codex-cli"
+        )
+        claude_install_command = (
+            f"curl -fsSL {base_url}/install.sh | "
+            f"bash -s -- --server-url {base_url} --api-key &lt;YOUR_KEY&gt; --host claude-code"
+        )
+        openclaw_install_command = (
+            f"curl -fsSL {base_url}/install.sh | "
+            f"bash -s -- --server-url {base_url} --api-key &lt;YOUR_KEY&gt; --host openclaw"
         )
         archive_url = f"{base_url}/releases/moe-connector-macos.tar.gz"
         html = f"""<!doctype html>
@@ -521,23 +529,31 @@ def create_app(
       <ol>
         <li>Request your personal beta API key from the admin.</li>
         <li>Run the install bootstrap command in Terminal on macOS.</li>
-        <li>Restart Codex CLI or Claude Code after installation.</li>
+        <li>Restart Codex CLI, Claude Code, or OpenClaw after installation.</li>
       </ol>
-      <pre><code>{install_command}</code></pre>
+      <h3>Codex CLI</h3>
+      <pre><code>{codex_install_command}</code></pre>
+      <h3>Claude Code</h3>
+      <pre><code>{claude_install_command}</code></pre>
+      <h3>OpenClaw</h3>
+      <pre><code>{openclaw_install_command}</code></pre>
       <h2>Verify</h2>
       <pre><code>moe-connector doctor --host codex-cli</code></pre>
+      <pre><code>moe-connector doctor --host claude-code</code></pre>
+      <pre><code>moe-connector doctor --host openclaw --workspace-path &lt;OPENCLAW_WORKSPACE&gt;</code></pre>
       <h2>What gets installed</h2>
       <ul>
         <li><code>~/.local/bin/moe-connector</code></li>
         <li><code>~/.moe-connector/config.toml</code></li>
         <li><code>~/MOE Outputs</code></li>
-        <li>Host registration for Codex CLI or Claude Code</li>
+        <li>Host registration for Codex CLI, Claude Code, or an OpenClaw agent workspace</li>
       </ul>
       <h2>Troubleshooting</h2>
       <ul>
         <li>If the install script cannot find <code>python3</code>, install Python 3.11+ first.</li>
         <li>If <code>doctor</code> reports authentication failure, confirm your API key was copied fully.</li>
         <li>If host registration succeeds but tools do not appear, restart the host client.</li>
+        <li>OpenClaw installs prompt you to confirm the target agent workspace. If discovery fails, rerun with <code>--openclaw-workspace &lt;PATH&gt;</code>.</li>
       </ul>
     </main>
   </body>

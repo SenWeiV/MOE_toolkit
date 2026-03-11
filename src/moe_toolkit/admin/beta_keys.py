@@ -13,7 +13,7 @@ from typing import Literal
 
 DEFAULT_STORE_PATH = Path.home() / ".moe-toolkit-beta" / "api_keys.json"
 DEFAULT_SERVER_URL = "${MOE_PUBLIC_BASE_URL}"
-SUPPORTED_HOSTS = ("claude-code", "codex-cli")
+SUPPORTED_HOSTS = ("claude-code", "codex-cli", "openclaw")
 
 
 @dataclass(slots=True)
@@ -28,7 +28,7 @@ class BetaKeyRecord:
     created_at: str
     revoked_at: str | None = None
     note: str = ""
-    host_client: Literal["claude-code", "codex-cli"] = "codex-cli"
+    host_client: Literal["claude-code", "codex-cli", "openclaw"] = "codex-cli"
 
 
 def utc_now() -> str:
@@ -66,7 +66,11 @@ def generate_api_key() -> str:
     return f"sk_beta_{secrets.token_hex(24)}"
 
 
-def normalize_host(host: str | None, *, default_host: str = "codex-cli") -> Literal["claude-code", "codex-cli"]:
+def normalize_host(
+    host: str | None,
+    *,
+    default_host: str = "codex-cli",
+) -> Literal["claude-code", "codex-cli", "openclaw"]:
     """Validates and normalizes a host client value."""
 
     candidate = (host or default_host).strip() or default_host
@@ -176,6 +180,12 @@ def render_email_body(record: BetaKeyRecord, *, server_url: str = DEFAULT_SERVER
         server_url=server_url,
         host=record.host_client,
     )
+    host_notes = ""
+    if record.host_client == "openclaw":
+        host_notes = (
+            "- OpenClaw 安装会自动扫描本地 agent workspace，并要求你确认要接入的那个 workspace。\n"
+            "- 如果自动发现失败，请补 `--openclaw-workspace <PATH>` 重新执行安装命令。\n"
+        )
     return (
         f"{record.owner_name}，你好。\n\n"
         "MOE Toolkit Beta 已为你开通。\n\n"
@@ -187,6 +197,7 @@ def render_email_body(record: BetaKeyRecord, *, server_url: str = DEFAULT_SERVER
         "注意事项：\n"
         "- 当前为 Beta 版本，使用 HTTP + API Key，不建议处理高敏感数据。\n"
         "- 如需重新配置，可运行 `moe-connector configure`。\n"
+        f"{host_notes}"
         "- 如安装失败，请把终端输出回传给运营侧。\n"
     )
 

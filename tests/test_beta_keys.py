@@ -69,6 +69,23 @@ def test_render_email_body_includes_beta_links() -> None:
     assert "--host claude-code" in body
 
 
+def test_render_email_body_for_openclaw_mentions_workspace_confirmation() -> None:
+    record = beta_keys.BetaKeyRecord(
+        key_id="demo",
+        owner_name="Alice",
+        contact="alice@example.com",
+        api_key="sk_beta_demo",
+        status="active",
+        created_at="2026-03-09T00:00:00+00:00",
+        host_client="openclaw",
+    )
+
+    body = beta_keys.render_email_body(record, server_url="${MOE_PUBLIC_BASE_URL}")
+
+    assert "--host openclaw" in body
+    assert "workspace" in body
+
+
 def test_bulk_issue_from_csv_exports_templates(tmp_path: Path) -> None:
     store_path = tmp_path / "api_keys.json"
     input_csv = tmp_path / "users.csv"
@@ -76,7 +93,7 @@ def test_bulk_issue_from_csv_exports_templates(tmp_path: Path) -> None:
     input_csv.write_text(
         "owner_name,contact,note,host\n"
         "Alice,alice@example.com,design partner,codex-cli\n"
-        "Bob,bob@example.com,,claude-code\n",
+        "Bob,bob@example.com,,openclaw\n",
         encoding="utf-8",
     )
 
@@ -90,7 +107,7 @@ def test_bulk_issue_from_csv_exports_templates(tmp_path: Path) -> None:
     assert len(records) == 2
     assert issued_csv_path.exists()
     assert manifest_path.exists()
-    assert records[1].host_client == "claude-code"
+    assert records[1].host_client == "openclaw"
     email_files = sorted((output_dir / "emails").glob("*.txt"))
     assert len(email_files) == 2
     assert "sk_beta_" in email_files[0].read_text(encoding="utf-8")
@@ -103,13 +120,13 @@ def test_bulk_issue_from_csv_exports_templates(tmp_path: Path) -> None:
     with manifest_path.open("r", encoding="utf-8", newline="") as handle:
         manifest_rows = list(csv.DictReader(handle))
     assert manifest_rows[1]["contact"] == "bob@example.com"
-    assert manifest_rows[1]["host_client"] == "claude-code"
+    assert manifest_rows[1]["host_client"] == "openclaw"
 
 
 def test_export_emails_filters_existing_records(tmp_path: Path) -> None:
     store_path = tmp_path / "api_keys.json"
     first = beta_keys.issue_key(store_path=store_path, owner_name="Alice", host_client="codex-cli")
-    second = beta_keys.issue_key(store_path=store_path, owner_name="Bob", host_client="claude-code")
+    second = beta_keys.issue_key(store_path=store_path, owner_name="Bob", host_client="openclaw")
     beta_keys.revoke_key(store_path=store_path, key_id=first.key_id)
     output_dir = tmp_path / "exports"
 

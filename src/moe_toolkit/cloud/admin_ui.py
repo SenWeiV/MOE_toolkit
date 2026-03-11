@@ -382,6 +382,7 @@ def build_admin_dashboard(
             <select id="host_client" name="host_client">
               <option value="codex-cli">codex-cli</option>
               <option value="claude-code">claude-code</option>
+              <option value="openclaw">openclaw</option>
             </select>
             <label for="note">Note</label>
             <textarea id="note" name="note"></textarea>

@@ -48,6 +48,7 @@ def test_admin_dashboard_issue_revoke_and_download_email(tmp_path: Path) -> None
 
         dashboard_response = client.get("/admin")
         assert dashboard_response.status_code == 200
+        assert '<option value="openclaw">openclaw</option>' in dashboard_response.text
         csrf_token = extract_csrf_token(dashboard_response.text)
 
         issue_response = client.post(
@@ -57,7 +58,7 @@ def test_admin_dashboard_issue_revoke_and_download_email(tmp_path: Path) -> None
                 "owner_name": "Alice",
                 "contact": "alice@example.com",
                 "note": "design partner",
-                "host_client": "codex-cli",
+                "host_client": "openclaw",
             },
             follow_redirects=False,
         )
@@ -78,6 +79,7 @@ def test_admin_dashboard_issue_revoke_and_download_email(tmp_path: Path) -> None
         assert email_response.status_code == 200
         assert record.api_key in email_response.text
         assert "curl -fsSL" in email_response.text
+        assert "--host openclaw" in email_response.text
 
         manifest_response = client.get("/admin/email-manifest.csv?status=active")
         assert manifest_response.status_code == 200

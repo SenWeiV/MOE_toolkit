@@ -48,7 +48,7 @@ class ConnectorConfig(BaseModel):
     @field_validator("host_client")
     @classmethod
     def validate_host_client(cls, value: str) -> str:
-        allowed = {"claude-code", "codex-cli"}
+        allowed = {"claude-code", "codex-cli", "openclaw"}
         if value not in allowed:
             raise ValueError(f"host_client must be one of {sorted(allowed)}")
         return value

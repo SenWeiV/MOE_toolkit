@@ -8,7 +8,8 @@ Usage: install-connector.sh [options]
 Options:
   --server-url URL        Configure connector to use this cloud URL
   --api-key KEY           Configure connector with this API key
-  --host HOST             Install host registration for claude-code or codex-cli (repeatable)
+  --host HOST             Install host registration for claude-code, codex-cli, or openclaw (repeatable)
+  --openclaw-workspace P  Target OpenClaw workspace path when --host openclaw is used
   --output-dir DIR        Output directory for downloaded artifacts
   --config-path PATH      Connector config path (default: ~/.moe-connector/config.toml)
   --python BIN            Python executable to use (default: python3)
@@ -39,6 +40,7 @@ API_KEY=""
 SKIP_DOCTOR=0
 FORCE_INSTALL=0
 HOSTS=()
+OPENCLAW_WORKSPACE=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -52,6 +54,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --host)
       HOSTS+=("$2")
+      shift 2
+      ;;
+    --openclaw-workspace)
+      OPENCLAW_WORKSPACE="$2"
       shift 2
       ;;
     --output-dir)
@@ -92,7 +98,7 @@ if ! command -v "${PYTHON_BIN}" >/dev/null 2>&1; then
 fi
 
 for host in "${HOSTS[@]}"; do
-  if [[ "${host}" != "claude-code" && "${host}" != "codex-cli" ]]; then
+  if [[ "${host}" != "claude-code" && "${host}" != "codex-cli" && "${host}" != "openclaw" ]]; then
     echo "Unsupported host: ${host}" >&2
     exit 1
   fi
@@ -151,10 +157,16 @@ if [[ -n "${SERVER_URL}" || -n "${API_KEY}" ]]; then
 fi
 
 for host in "${HOSTS[@]}"; do
-  "${COMMAND_SHIM}" install \
-    --host "${host}" \
-    --command-path "${COMMAND_SHIM}" \
+  INSTALL_ARGS=(
+    install
+    --host "${host}"
+    --command-path "${COMMAND_SHIM}"
     --config-path "${CONFIG_PATH}"
+  )
+  if [[ "${host}" == "openclaw" && -n "${OPENCLAW_WORKSPACE}" ]]; then
+    INSTALL_ARGS+=(--workspace-path "${OPENCLAW_WORKSPACE}")
+  fi
+  "${COMMAND_SHIM}" "${INSTALL_ARGS[@]}"
 done
 
 if [[ ${SKIP_DOCTOR} -eq 0 && -f "${CONFIG_PATH}" ]]; then
@@ -162,6 +174,9 @@ if [[ ${SKIP_DOCTOR} -eq 0 && -f "${CONFIG_PATH}" ]]; then
   for host in "${HOSTS[@]}"; do
     DOCTOR_ARGS+=(--host "${host}")
   done
+  if [[ " ${HOSTS[*]} " == *" openclaw "* && -n "${OPENCLAW_WORKSPACE}" ]]; then
+    DOCTOR_ARGS+=(--workspace-path "${OPENCLAW_WORKSPACE}")
+  fi
   "${COMMAND_SHIM}" "${DOCTOR_ARGS[@]}"
 fi
 

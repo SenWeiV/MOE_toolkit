@@ -6,8 +6,9 @@ usage() {
 Usage: uninstall-connector.sh [options]
 
 Options:
-  --host HOST        Remove host registration for claude-code or codex-cli (repeatable)
-  --all-hosts        Remove registrations for both supported hosts
+  --host HOST        Remove host registration for claude-code, codex-cli, or openclaw (repeatable)
+  --all-hosts        Remove registrations for all supported hosts
+  --openclaw-workspace P  Target OpenClaw workspace path when uninstalling openclaw
   --purge-config     Delete ~/.moe-connector/config.toml after uninstall
   --purge-output     Delete ~/MOE Outputs after uninstall
   --help             Show this help message
@@ -23,6 +24,7 @@ COMMAND_SHIM="${BIN_DIR}/moe-connector"
 PURGE_CONFIG=0
 PURGE_OUTPUT=0
 HOSTS=()
+OPENCLAW_WORKSPACE=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -31,8 +33,12 @@ while [[ $# -gt 0 ]]; do
       shift 2
       ;;
     --all-hosts)
-      HOSTS=("codex-cli" "claude-code")
+      HOSTS=("codex-cli" "claude-code" "openclaw")
       shift
+      ;;
+    --openclaw-workspace)
+      OPENCLAW_WORKSPACE="$2"
+      shift 2
       ;;
     --purge-config)
       PURGE_CONFIG=1
@@ -54,8 +60,15 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+for host in "${HOSTS[@]}"; do
+  if [[ "${host}" != "claude-code" && "${host}" != "codex-cli" && "${host}" != "openclaw" ]]; then
+    echo "Unsupported host: ${host}" >&2
+    exit 1
+  fi
+done
+
 if [[ ${#HOSTS[@]} -eq 0 ]]; then
-  HOSTS=("codex-cli" "claude-code")
+  HOSTS=("codex-cli" "claude-code" "openclaw")
 fi
 
 run_uninstall() {
@@ -69,7 +82,11 @@ run_uninstall() {
 
   if [[ -n "${connector_command}" ]]; then
     for host in "${HOSTS[@]}"; do
-      "${connector_command}" uninstall --host "${host}" >/dev/null || true
+      UNINSTALL_ARGS=(uninstall --host "${host}")
+      if [[ "${host}" == "openclaw" && -n "${OPENCLAW_WORKSPACE}" ]]; then
+        UNINSTALL_ARGS+=(--workspace-path "${OPENCLAW_WORKSPACE}")
+      fi
+      "${connector_command}" "${UNINSTALL_ARGS[@]}" || true
     done
   fi
 }

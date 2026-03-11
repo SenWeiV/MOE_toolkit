@@ -58,6 +58,7 @@ moe-beta-admin revoke --key-id <KEY_ID>
 owner_name,contact,note,host
 Alice,alice@example.com,design partner,codex-cli
 Bob,bob@example.com,founding user,claude-code
+Carol,carol@example.com,openclaw pilot,openclaw
 ```
 
 然后执行：
@@ -190,6 +191,16 @@ curl -fsSL ${MOE_PUBLIC_BASE_URL}/install.sh | \
   --host codex-cli
 ```
 
+OpenClaw 用户模板：
+
+```bash
+curl -fsSL ${MOE_PUBLIC_BASE_URL}/install.sh | \
+  bash -s -- \
+  --server-url ${MOE_PUBLIC_BASE_URL} \
+  --api-key <USER_KEY> \
+  --host openclaw
+```
+
 ## 6. 建议发送给用户的模板
 
 ```text
@@ -212,6 +223,7 @@ curl -fsSL ${MOE_PUBLIC_BASE_URL}/install.sh | bash -s -- --server-url ${MOE_PUB
 
 - 如果已经用 `bulk-issue` 或 `export-emails`，这段模板会自动写入 `emails/*.txt`
 - `email_manifest.csv` 适合导入表格后统一跟踪发送状态
+- OpenClaw 用户的邮件模板会自动带上 `--host openclaw`，并提示他们确认目标 agent workspace
 
 ## 7. 发布前检查
 
@@ -230,3 +242,4 @@ curl -fsSL ${MOE_PUBLIC_BASE_URL}/install.sh | bash -s -- --server-url ${MOE_PUB
 - 当前公开安装包只针对 macOS
 - 如果沿用本地 CLI 发 key，新增或吊销 key 后仍需要重新部署
 - 运营后台仍是单账号最小实现，没有复杂权限模型
+- OpenClaw 用户需要先让目标 agent 启动一次，完成 workspace bootstrap 后再安装
