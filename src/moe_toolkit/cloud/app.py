@@ -511,7 +511,7 @@ def create_app(
     <main>
       <h1>MOE Toolkit Beta</h1>
       <p class="muted">
-        This page is for invited beta users. You need an API key from the MOE Toolkit operator before installing.
+        This page is for invited beta users. You need an API key from the MOE Toolkit admin before installing.
       </p>
       <div class="card">
         <strong>Cloud endpoint:</strong> <code>{escape(base_url)}</code><br />
@@ -519,7 +519,7 @@ def create_app(
       </div>
       <h2>Install</h2>
       <ol>
-        <li>Request your personal beta API key from the operator.</li>
+        <li>Request your personal beta API key from the admin.</li>
         <li>Run the install bootstrap command in Terminal on macOS.</li>
         <li>Restart Codex CLI or Claude Code after installation.</li>
       </ol>

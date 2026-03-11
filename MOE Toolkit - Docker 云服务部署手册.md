@@ -90,7 +90,7 @@ MOE_ENV=beta
 MOE_API_KEYS_RAW=<comma-separated-active-keys>
 MOE_PUBLIC_BASE_URL=${MOE_PUBLIC_BASE_URL}
 MOE_API_KEY_STORE_PATH=/srv/moe/admin/api_keys.json
-MOE_ADMIN_USERNAME=operator
+MOE_ADMIN_USERNAME=<admin-username>
 MOE_ADMIN_PASSWORD=<strong-password>
 MOE_ADMIN_SESSION_SECRET=<long-random-secret>
 ```

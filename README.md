@@ -75,12 +75,12 @@ Render the active key set for deployment:
 MOE_API_KEYS_RAW="$(moe-beta-admin render-env)" bash scripts/deploy-cloud.sh
 ```
 
-`bulk-issue` writes `issued_keys.csv`, `email_manifest.csv`, and `emails/*.txt` for operator follow-up.
+`bulk-issue` writes `issued_keys.csv`, `email_manifest.csv`, and `emails/*.txt` for admin follow-up.
 
 To enable the hosted admin page during deploy, set:
 
 ```bash
-export MOE_ADMIN_USERNAME=operator
+export MOE_ADMIN_USERNAME='<admin-username>'
 export MOE_ADMIN_PASSWORD='<strong-password>'
 export MOE_ADMIN_SESSION_SECRET='<long-random-secret>'
 MOE_API_KEYS_RAW="$(moe-beta-admin render-env)" bash scripts/deploy-cloud.sh

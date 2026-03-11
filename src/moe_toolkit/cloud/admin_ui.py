@@ -112,7 +112,7 @@ def build_admin_login_page(*, message: str = "", error: str = "") -> str:
   <body>
     <main>
       <h1>MOE Admin</h1>
-      <p>Use the operator account to manage beta users, issue API keys, revoke access, and download install email templates.</p>
+      <p>Use the admin account to manage beta users, issue API keys, revoke access, and download install email templates.</p>
       {status_html}
       <form method="post" action="/admin/login">
         <label for="username">Username</label>

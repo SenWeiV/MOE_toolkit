@@ -119,7 +119,7 @@ MOE_API_KEYS_RAW="$(moe-beta-admin render-env)" bash scripts/deploy-cloud.sh
 后台依赖以下环境变量：
 
 ```bash
-export MOE_ADMIN_USERNAME=operator
+export MOE_ADMIN_USERNAME='<admin-username>'
 export MOE_ADMIN_PASSWORD='<strong-password>'
 export MOE_ADMIN_SESSION_SECRET='<long-random-secret>'
 ```
