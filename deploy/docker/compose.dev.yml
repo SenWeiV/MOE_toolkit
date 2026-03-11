@@ -1,0 +1,56 @@
+services:
+  moe-api:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile
+      args:
+        INSTALL_DOCKER_CLI: "0"
+    environment:
+      MOE_ENV: dev
+      MOE_API_HOST: 0.0.0.0
+      MOE_API_PORT: 8080
+      MOE_PUBLIC_BASE_URL: http://127.0.0.1:8080
+      MOE_API_KEYS_RAW: dev-api-key
+      MOE_API_KEY_STORE_PATH: /srv/moe/admin/api_keys.json
+      MOE_ADMIN_USERNAME: dev-admin
+      MOE_ADMIN_PASSWORD: dev-password
+      MOE_ADMIN_SESSION_SECRET: dev-session-secret
+      MOE_STORAGE_ROOT: /srv/moe
+      MOE_EXECUTION_BACKEND: inline
+      MOE_EMBEDDED_WORKER_ENABLED: "false"
+    ports:
+      - "8080:8080"
+    volumes:
+      - ../../.state/dev:/srv/moe
+
+  moe-worker:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile
+      args:
+        INSTALL_DOCKER_CLI: "1"
+    command: ["python", "-m", "moe_toolkit.cloud.worker_main"]
+    environment:
+      MOE_DOCKER_BINARY: /usr/bin/docker
+      MOE_ENV: dev
+      MOE_EXECUTION_BACKEND: inline
+      MOE_STORAGE_ROOT: /srv/moe
+      MOE_EMBEDDED_WORKER_ENABLED: "false"
+    volumes:
+      - ../../.state/dev:/srv/moe
+      - /usr/bin/docker:/usr/bin/docker:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  cleanup-job:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile
+      args:
+        INSTALL_DOCKER_CLI: "0"
+    command: ["python", "-m", "moe_toolkit.cloud.cleanup_main"]
+    environment:
+      MOE_ENV: dev
+      MOE_EXECUTION_BACKEND: inline
+      MOE_STORAGE_ROOT: /srv/moe
+    volumes:
+      - ../../.state/dev:/srv/moe
