@@ -11,8 +11,9 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal
 
+from moe_toolkit.local_env import default_public_base_url
+
 DEFAULT_STORE_PATH = Path.home() / ".moe-toolkit-beta" / "api_keys.json"
-DEFAULT_SERVER_URL = "${MOE_PUBLIC_BASE_URL}"
 SUPPORTED_HOSTS = ("claude-code", "codex-cli", "openclaw")
 
 
@@ -155,14 +156,15 @@ def render_env_value(store_path: Path) -> str:
 def render_install_command(
     *,
     api_key: str,
-    server_url: str = DEFAULT_SERVER_URL,
+    server_url: str | None = None,
     host: str = "codex-cli",
 ) -> str:
     """Renders the beta user install command."""
 
+    resolved_server_url = (server_url or default_public_base_url()).rstrip("/")
     return (
-        f"curl -fsSL {server_url}/install.sh | "
-        f"bash -s -- --server-url {server_url} --api-key {api_key} --host {host}"
+        f"curl -fsSL {resolved_server_url}/install.sh | "
+        f"bash -s -- --server-url {resolved_server_url} --api-key {api_key} --host {host}"
     )
 
 
@@ -172,12 +174,13 @@ def render_email_subject(record: BetaKeyRecord) -> str:
     return f"MOE Toolkit Beta access for {record.owner_name}"
 
 
-def render_email_body(record: BetaKeyRecord, *, server_url: str = DEFAULT_SERVER_URL) -> str:
+def render_email_body(record: BetaKeyRecord, *, server_url: str | None = None) -> str:
     """Renders a user-facing beta invitation email body."""
 
+    resolved_server_url = (server_url or default_public_base_url()).rstrip("/")
     install_command = render_install_command(
         api_key=record.api_key,
-        server_url=server_url,
+        server_url=resolved_server_url,
         host=record.host_client,
     )
     host_notes = ""
@@ -189,9 +192,9 @@ def render_email_body(record: BetaKeyRecord, *, server_url: str = DEFAULT_SERVER
     return (
         f"{record.owner_name}，你好。\n\n"
         "MOE Toolkit Beta 已为你开通。\n\n"
-        f"云端地址：\n{server_url}\n\n"
+        f"云端地址：\n{resolved_server_url}\n\n"
         f"你的 API Key：\n{record.api_key}\n\n"
-        f"安装说明页：\n{server_url}/beta\n\n"
+        f"安装说明页：\n{resolved_server_url}/beta\n\n"
         "推荐安装命令：\n"
         f"{install_command}\n\n"
         "注意事项：\n"
@@ -215,7 +218,7 @@ def export_email_templates(
     *,
     records: list[BetaKeyRecord],
     output_dir: Path,
-    server_url: str = DEFAULT_SERVER_URL,
+    server_url: str | None = None,
 ) -> tuple[Path, Path]:
     """Writes per-user email templates and a CSV manifest."""
 
@@ -267,7 +270,7 @@ def bulk_issue_from_csv(
     store_path: Path,
     csv_path: Path,
     output_dir: Path,
-    server_url: str = DEFAULT_SERVER_URL,
+    server_url: str | None = None,
     default_host: str = "codex-cli",
 ) -> tuple[list[BetaKeyRecord], Path, Path]:
     """Issues keys from a CSV and exports install/email materials."""
@@ -364,7 +367,7 @@ def build_parser() -> argparse.ArgumentParser:
     issue.add_argument("--owner-name", required=True)
     issue.add_argument("--contact", default="")
     issue.add_argument("--note", default="")
-    issue.add_argument("--server-url", default=DEFAULT_SERVER_URL)
+    issue.add_argument("--server-url", default=default_public_base_url())
     issue.add_argument("--host", choices=SUPPORTED_HOSTS, default="codex-cli")
 
     list_parser = subparsers.add_parser("list")
@@ -379,13 +382,13 @@ def build_parser() -> argparse.ArgumentParser:
     bulk_issue = subparsers.add_parser("bulk-issue")
     bulk_issue.add_argument("--input-csv", required=True)
     bulk_issue.add_argument("--output-dir", required=True)
-    bulk_issue.add_argument("--server-url", default=DEFAULT_SERVER_URL)
+    bulk_issue.add_argument("--server-url", default=default_public_base_url())
     bulk_issue.add_argument("--default-host", choices=SUPPORTED_HOSTS, default="codex-cli")
 
     export_emails = subparsers.add_parser("export-emails")
     export_emails.add_argument("--output-dir", required=True)
     export_emails.add_argument("--status", choices=["active", "revoked", "all"], default="active")
-    export_emails.add_argument("--server-url", default=DEFAULT_SERVER_URL)
+    export_emails.add_argument("--server-url", default=default_public_base_url())
     export_emails.add_argument("--key-id", action="append", default=[])
 
     return parser

@@ -33,7 +33,7 @@ async def test_cloud_client_executes_task_and_downloads_artifacts(tmp_path) -> N
         CloudSettings(
             api_keys_raw="alpha-key",
             storage_root=tmp_path / "cloud",
-            public_base_url="${MOE_PUBLIC_BASE_URL}",
+            public_base_url="http://example.test:8080",
             queue_poll_interval_seconds=0.01,
         )
     )

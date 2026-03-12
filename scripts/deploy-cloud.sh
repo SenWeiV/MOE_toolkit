@@ -2,13 +2,16 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-REMOTE_HOST="${MOE_REMOTE_HOST:-${MOE_REMOTE_HOST}}"
+# shellcheck source=scripts/load-local-env.sh
+. "${ROOT_DIR}/scripts/load-local-env.sh"
+
+REMOTE_HOST="${MOE_REMOTE_HOST:-deploy@127.0.0.1}"
 REMOTE_ROOT="${MOE_REMOTE_ROOT:-/opt/moe-toolkit}"
 REMOTE_SOURCE_DIR="${REMOTE_ROOT}/source"
 REMOTE_DATA_DIR="${REMOTE_ROOT}/data"
 REMOTE_RELEASES_DIR="${REMOTE_DATA_DIR}/releases"
 REMOTE_ENV_FILE="${MOE_REMOTE_ENV_FILE:-${REMOTE_ROOT}/.env.prod}"
-DEFAULT_PUBLIC_BASE_URL="${MOE_PUBLIC_BASE_URL}"
+DEFAULT_PUBLIC_BASE_URL="http://127.0.0.1:8080"
 DEFAULT_API_KEY_STORE_PATH="/srv/moe/admin/api_keys.json"
 LOCAL_PUBLIC_BASE_URL="${MOE_PUBLIC_BASE_URL:-}"
 LOCAL_API_KEYS_RAW="${MOE_API_KEYS_RAW:-}"

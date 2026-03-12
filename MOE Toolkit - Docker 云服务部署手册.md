@@ -9,11 +9,11 @@
 
 服务器信息参考：
 
-- `/Users/weisen/Documents/small-project/百度云服务器通用配置.md`
+- 私有基础设施文档（不纳入公开仓库）
 
 首版固定部署目标：
 
-- 服务器：`${MOE_PUBLIC_HOST}`
+- 服务器：`${MOE_REMOTE_HOST}`
 - 系统：`Ubuntu 22.04`
 - 部署路径：`/opt/moe-toolkit`
 - 对外入口：`${MOE_PUBLIC_BASE_URL}`
@@ -122,7 +122,7 @@ MOE_ADMIN_SESSION_SECRET=<long-random-secret>
 将项目上传到服务器，例如：
 
 ```bash
-scp -r /path/to/project ${MOE_REMOTE_HOST}:/opt/moe-toolkit/releases/current
+scp -r /path/to/project "${MOE_REMOTE_HOST}:/opt/moe-toolkit/releases/current"
 ```
 
 ### 8.2 启动服务

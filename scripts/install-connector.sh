@@ -28,6 +28,12 @@ else
   PACKAGE_ROOT="${SCRIPT_DIR}"
 fi
 
+LOCAL_ENV_HELPER="${PACKAGE_ROOT}/scripts/load-local-env.sh"
+if [[ -f "${LOCAL_ENV_HELPER}" ]]; then
+  # shellcheck source=scripts/load-local-env.sh
+  . "${LOCAL_ENV_HELPER}"
+fi
+
 CONNECTOR_HOME="${HOME}/.moe-connector"
 RUNTIME_DIR="${CONNECTOR_HOME}/runtime"
 CONFIG_PATH="${CONNECTOR_HOME}/config.toml"
@@ -37,6 +43,7 @@ COMMAND_SHIM="${BIN_DIR}/moe-connector"
 PYTHON_BIN="${PYTHON_BIN:-python3}"
 SERVER_URL=""
 API_KEY=""
+DEFAULT_SERVER_URL="${MOE_PUBLIC_BASE_URL:-http://127.0.0.1:8080}"
 SKIP_DOCTOR=0
 FORCE_INSTALL=0
 HOSTS=()
@@ -203,7 +210,7 @@ if [[ ! -f "${CONFIG_PATH}" ]]; then
   cat <<EOF
 
 Next steps:
-  ${COMMAND_SHIM} configure --server-url ${MOE_PUBLIC_BASE_URL} --api-key <YOUR_KEY>
+  ${COMMAND_SHIM} configure --server-url ${DEFAULT_SERVER_URL} --api-key <YOUR_KEY>
   ${COMMAND_SHIM} install --host codex-cli --command-path ${COMMAND_SHIM} --config-path ${CONFIG_PATH}
   ${COMMAND_SHIM} doctor --config-path ${CONFIG_PATH}
 EOF

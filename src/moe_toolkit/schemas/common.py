@@ -8,6 +8,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
 
+from moe_toolkit.local_env import default_public_base_url
+
 
 class HealthComponent(BaseModel):
     """Represents the status of a single runtime component."""
@@ -30,7 +32,7 @@ class HealthResponse(BaseModel):
 class ConnectorConfig(BaseModel):
     """Local connector configuration persisted on disk."""
 
-    server_url: str = "${MOE_PUBLIC_BASE_URL}"
+    server_url: str = Field(default_factory=default_public_base_url)
     api_key: str = ""
     host_client: str = "codex-cli"
     output_dir: Path = Field(default_factory=lambda: Path.home() / "MOE Outputs")

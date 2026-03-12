@@ -9,6 +9,7 @@ from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from moe_toolkit.admin.beta_keys import load_records
+from moe_toolkit.local_env import default_public_base_url
 
 
 class CloudSettings(BaseSettings):
@@ -16,14 +17,14 @@ class CloudSettings(BaseSettings):
 
     model_config = SettingsConfigDict(
         env_prefix="MOE_",
-        env_file=".env",
+        env_file=(".env", ".env.local"),
         extra="ignore",
     )
 
     env: str = "dev"
     api_host: str = "0.0.0.0"
     api_port: int = 8080
-    public_base_url: str = "${MOE_PUBLIC_BASE_URL}"
+    public_base_url: str = Field(default_factory=default_public_base_url)
     api_keys_raw: str = ""
     api_key_store_path: Path | None = None
     storage_root: Path = Field(default_factory=lambda: Path.cwd() / ".state")

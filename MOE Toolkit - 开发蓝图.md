@@ -53,10 +53,9 @@
 
 云端部署固定参考：
 
-- 文档：`/Users/weisen/Documents/small-project/百度云服务器通用配置.md`
-- 公网 IP：`${MOE_PUBLIC_HOST}`
+- 文档：私有基础设施基线说明
+- SSH 目标：`${MOE_REMOTE_HOST}`
 - 系统：`Ubuntu 22.04 LTS`
-- 登录用户：`root`
 - 部署目录：`/opt/moe-toolkit`
 
 ### 3.2 首版云端部署约束

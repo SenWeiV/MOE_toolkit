@@ -42,11 +42,11 @@ def test_revoke_key_excludes_it_from_active_env(tmp_path: Path) -> None:
 def test_render_install_command_uses_public_install_endpoint() -> None:
     command = beta_keys.render_install_command(
         api_key="sk_beta_demo",
-        server_url="${MOE_PUBLIC_BASE_URL}",
+        server_url="http://example.test:8080",
         host="codex-cli",
     )
 
-    assert "curl -fsSL ${MOE_PUBLIC_BASE_URL}/install.sh" in command
+    assert "curl -fsSL http://example.test:8080/install.sh" in command
     assert "--api-key sk_beta_demo" in command
     assert "--host codex-cli" in command
 
@@ -62,10 +62,10 @@ def test_render_email_body_includes_beta_links() -> None:
         host_client="claude-code",
     )
 
-    body = beta_keys.render_email_body(record, server_url="${MOE_PUBLIC_BASE_URL}")
+    body = beta_keys.render_email_body(record, server_url="http://example.test:8080")
 
     assert "MOE Toolkit Beta 已为你开通" in body
-    assert "${MOE_PUBLIC_BASE_URL}/beta" in body
+    assert "http://example.test:8080/beta" in body
     assert "--host claude-code" in body
 
 
@@ -80,7 +80,7 @@ def test_render_email_body_for_openclaw_mentions_workspace_confirmation() -> Non
         host_client="openclaw",
     )
 
-    body = beta_keys.render_email_body(record, server_url="${MOE_PUBLIC_BASE_URL}")
+    body = beta_keys.render_email_body(record, server_url="http://example.test:8080")
 
     assert "--host openclaw" in body
     assert "workspace" in body
@@ -101,7 +101,7 @@ def test_bulk_issue_from_csv_exports_templates(tmp_path: Path) -> None:
         store_path=store_path,
         csv_path=input_csv,
         output_dir=output_dir,
-        server_url="${MOE_PUBLIC_BASE_URL}",
+        server_url="http://example.test:8080",
     )
 
     assert len(records) == 2

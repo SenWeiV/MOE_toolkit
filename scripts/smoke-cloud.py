@@ -11,12 +11,13 @@ if str(ROOT_DIR / "src") not in sys.path:
     sys.path.insert(0, str(ROOT_DIR / "src"))
 
 from moe_toolkit.connector.client import CloudClient
+from moe_toolkit.local_env import default_public_base_url
 from moe_toolkit.schemas.common import ConnectorConfig
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Run a cloud smoke test against MOE Toolkit.")
-    parser.add_argument("--server-url", default="${MOE_PUBLIC_BASE_URL}")
+    parser.add_argument("--server-url", default=default_public_base_url())
     parser.add_argument("--api-key", required=True)
     parser.add_argument("--output-dir", default=None)
     parser.add_argument("--task", default="分析这个 CSV 并生成趋势图")

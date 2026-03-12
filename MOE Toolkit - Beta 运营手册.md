@@ -106,7 +106,7 @@ moe-beta-admin export-emails \
 如果你仍然使用本地 `moe-beta-admin` 发 key，需要执行一次部署同步：
 
 ```bash
-cd /Users/weisen/Documents/small-project/MOE_toolkit
+cd /path/to/MOE_toolkit
 MOE_API_KEYS_RAW="$(moe-beta-admin render-env)" bash scripts/deploy-cloud.sh
 ```
 
@@ -128,7 +128,7 @@ export MOE_ADMIN_SESSION_SECRET='<long-random-secret>'
 然后执行：
 
 ```bash
-cd /Users/weisen/Documents/small-project/MOE_toolkit
+cd /path/to/MOE_toolkit
 MOE_API_KEYS_RAW="$(moe-beta-admin render-env)" bash scripts/deploy-cloud.sh
 ```
 

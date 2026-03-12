@@ -18,6 +18,8 @@ Cloud-hosted MOE Toolkit runtime and local connector for remote CSV analysis wor
 
 ## User Install
 
+如需在本机保留不应提交的部署参数，可复制 `.env.local.example` 为 `.env.local`。
+
 Public beta page:
 
 ```text

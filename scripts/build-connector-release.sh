@@ -2,11 +2,14 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck source=scripts/load-local-env.sh
+. "${ROOT_DIR}/scripts/load-local-env.sh"
 DIST_DIR="${ROOT_DIR}/dist"
 WHEELS_DIR="${DIST_DIR}/wheels"
 RELEASE_DIR="${DIST_DIR}/moe-connector-release"
 ARCHIVE_PATH="${DIST_DIR}/moe-connector-macos.tar.gz"
 PYTHON_BIN="${PYTHON_BIN:-python3}"
+DEFAULT_SERVER_URL="${MOE_PUBLIC_BASE_URL:-http://127.0.0.1:8080}"
 
 if ! command -v "${PYTHON_BIN}" >/dev/null 2>&1; then
   echo "${PYTHON_BIN} is required but was not found." >&2
@@ -40,5 +43,5 @@ Archive: ${ARCHIVE_PATH}
 Wheel: $(basename "${latest_wheel}")
 
 Users can unpack the archive and run:
-  bash install.sh --server-url ${MOE_PUBLIC_BASE_URL} --api-key <YOUR_KEY> --host codex-cli
+  bash install.sh --server-url ${DEFAULT_SERVER_URL} --api-key <YOUR_KEY> --host codex-cli
 EOF

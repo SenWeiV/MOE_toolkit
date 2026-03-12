@@ -10,7 +10,7 @@ services:
       MOE_ENV: beta
       MOE_API_HOST: 0.0.0.0
       MOE_API_PORT: 8080
-      MOE_PUBLIC_BASE_URL: ${MOE_PUBLIC_BASE_URL}
+      MOE_PUBLIC_BASE_URL: ${MOE_PUBLIC_BASE_URL:-http://127.0.0.1:8080}
       MOE_API_KEYS_RAW: ${MOE_API_KEYS_RAW:?set-in-env}
       MOE_API_KEY_STORE_PATH: ${MOE_API_KEY_STORE_PATH:-/srv/moe/admin/api_keys.json}
       MOE_ADMIN_USERNAME: ${MOE_ADMIN_USERNAME:-}

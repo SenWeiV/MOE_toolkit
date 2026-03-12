@@ -53,7 +53,7 @@ def test_beta_install_page_and_release_endpoints(tmp_path) -> None:
     app = create_app(
         CloudSettings(
             storage_root=tmp_path,
-            public_base_url="${MOE_PUBLIC_BASE_URL}",
+            public_base_url="http://example.test:8080",
             api_keys_raw="alpha-key",
         )
     )
@@ -64,10 +64,10 @@ def test_beta_install_page_and_release_endpoints(tmp_path) -> None:
 
         assert beta_response.status_code == 200
         assert "MOE Toolkit Beta" in beta_response.text
-        assert "curl -fsSL ${MOE_PUBLIC_BASE_URL}/install.sh" in beta_response.text
+        assert "curl -fsSL http://example.test:8080/install.sh" in beta_response.text
 
         assert install_response.status_code == 200
-        assert 'ARCHIVE_URL="${MOE_PUBLIC_BASE_URL}/releases/moe-connector-macos.tar.gz"' in install_response.text
+        assert 'ARCHIVE_URL="http://example.test:8080/releases/moe-connector-macos.tar.gz"' in install_response.text
         assert 'LC_ALL=C tar -xzf "${ARCHIVE_PATH}" -C "${TMP_DIR}"' in install_response.text
         assert 'bash "${TMP_DIR}/moe-connector-release/install.sh" "$@"' in install_response.text
 
