@@ -16,6 +16,7 @@ COPY pyproject.toml ./
 COPY README.md ./
 COPY src ./src
 COPY scripts ./scripts
+COPY tools ./tools
 
 RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir -i "${PIP_INDEX_URL}" .

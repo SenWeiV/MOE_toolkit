@@ -104,11 +104,15 @@ ssh "${REMOTE_HOST}" "mkdir -p '${REMOTE_SOURCE_DIR}' '${REMOTE_DATA_DIR}' '${RE
 
 rsync -avz --delete \
   --exclude='.git' \
+  --exclude='.env.local' \
   --exclude='.venv' \
   --exclude='.pytest_cache' \
   --exclude='__pycache__' \
   --exclude='.coverage' \
   --exclude='.state' \
+  --exclude='.smoke-downloads' \
+  --exclude='dist' \
+  --exclude='IMPLEMENTATION_GAP_REPORT.zh-CN.md' \
   "${ROOT_DIR}/" \
   "${REMOTE_HOST}:${REMOTE_SOURCE_DIR}/"
 

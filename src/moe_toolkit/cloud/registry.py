@@ -13,7 +13,15 @@ from moe_toolkit.schemas.common import RoutePlan, ToolManifest, ToolMatch, ToolS
 def default_registry_root() -> Path:
     """Returns the curated tools directory bundled with the repo."""
 
-    return Path(__file__).resolve().parents[3] / "tools" / "curated"
+    candidates = [
+        Path.cwd() / "tools" / "curated",
+        Path("/app/tools/curated"),
+        Path(__file__).resolve().parents[3] / "tools" / "curated",
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    return candidates[0]
 
 
 def detect_input_type(filename: str) -> str:
