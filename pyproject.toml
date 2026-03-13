@@ -30,6 +30,7 @@ dev = [
 
 [project.scripts]
 moe-cloud-api = "moe_toolkit.cloud.main:main"
+moeskills = "moe_toolkit.connector.cli:main"
 moe-connector = "moe_toolkit.connector.cli:main"
 moe-beta-admin = "moe_toolkit.admin.beta_keys:main"
 

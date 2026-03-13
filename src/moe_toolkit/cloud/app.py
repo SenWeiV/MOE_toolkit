@@ -113,7 +113,11 @@ def create_app(
         return app.state.cloud_service
 
     def get_release_archive_path() -> Path:
-        return resolved_settings.storage_root / "releases" / "moe-connector-macos.tar.gz"
+        releases_root = resolved_settings.storage_root / "releases"
+        primary = releases_root / "moeskills-macos.tar.gz"
+        if primary.exists():
+            return primary
+        return releases_root / "moe-connector-macos.tar.gz"
 
     def get_api_key_store_path() -> Path:
         return resolved_settings.resolved_api_key_store_path
@@ -464,7 +468,7 @@ def create_app(
             f"curl -fsSL {base_url}/install.sh | "
             f"bash -s -- --server-url {base_url} --api-key &lt;YOUR_KEY&gt; --host openclaw"
         )
-        archive_url = f"{base_url}/releases/moe-connector-macos.tar.gz"
+        archive_url = f"{base_url}/releases/moeskills-macos.tar.gz"
         html = f"""<!doctype html>
 <html lang="en">
   <head>
@@ -540,14 +544,19 @@ def create_app(
       <pre><code>{claude_install_command}</code></pre>
       <h3>OpenClaw</h3>
       <pre><code>{openclaw_install_command}</code></pre>
+      <h3>CLI / Agent Direct Use</h3>
+      <pre><code>moeskills config set --server-url {escape(base_url)} --api-key &lt;YOUR_KEY&gt;</code></pre>
+      <pre><code>moeskills run --task "分析这个 CSV 并生成趋势图" --attach ./sales.csv --wait --json</code></pre>
       <h2>Verify</h2>
-      <pre><code>moe-connector doctor --host codex-cli</code></pre>
-      <pre><code>moe-connector doctor --host claude-code</code></pre>
-      <pre><code>moe-connector doctor --host openclaw --workspace-path &lt;OPENCLAW_WORKSPACE&gt;</code></pre>
+      <pre><code>moeskills doctor</code></pre>
+      <pre><code>moeskills host doctor codex-cli</code></pre>
+      <pre><code>moeskills host doctor claude-code</code></pre>
+      <pre><code>moeskills host doctor openclaw --workspace-path &lt;OPENCLAW_WORKSPACE&gt;</code></pre>
       <h2>What gets installed</h2>
       <ul>
-        <li><code>~/.local/bin/moe-connector</code></li>
-        <li><code>~/.moe-connector/config.toml</code></li>
+        <li><code>~/.local/bin/moeskills</code></li>
+        <li><code>~/.local/bin/moe-connector</code> (compatibility alias)</li>
+        <li><code>~/.moeskills/config.toml</code></li>
         <li><code>~/MOE Outputs</code></li>
         <li>Host registration for Codex CLI, Claude Code, or an OpenClaw agent workspace</li>
       </ul>
@@ -575,16 +584,17 @@ def create_app(
                 'TMP_DIR="$(mktemp -d)"',
                 'cleanup() { rm -rf "${TMP_DIR}"; }',
                 "trap cleanup EXIT",
-                f'ARCHIVE_URL="{base_url}/releases/moe-connector-macos.tar.gz"',
-                'ARCHIVE_PATH="${TMP_DIR}/moe-connector-macos.tar.gz"',
+                f'ARCHIVE_URL="{base_url}/releases/moeskills-macos.tar.gz"',
+                'ARCHIVE_PATH="${TMP_DIR}/moeskills-macos.tar.gz"',
                 'curl -fsSL "${ARCHIVE_URL}" -o "${ARCHIVE_PATH}"',
                 'LC_ALL=C tar -xzf "${ARCHIVE_PATH}" -C "${TMP_DIR}"',
-                'bash "${TMP_DIR}/moe-connector-release/install.sh" "$@"',
+                'bash "${TMP_DIR}/moeskills-release/install.sh" "$@"',
                 "",
             ]
         )
         return PlainTextResponse(script)
 
+    @app.api_route("/releases/moeskills-macos.tar.gz", methods=["GET", "HEAD"])
     @app.api_route("/releases/moe-connector-macos.tar.gz", methods=["GET", "HEAD"])
     async def download_release_archive() -> FileResponse:
         archive_path = get_release_archive_path()
@@ -592,7 +602,7 @@ def create_app(
             raise HTTPException(status_code=404, detail="Connector release archive not found.")
         return FileResponse(
             archive_path,
-            filename="moe-connector-macos.tar.gz",
+            filename=archive_path.name,
             media_type="application/gzip",
         )
 
@@ -649,6 +659,7 @@ def create_app(
         except KeyError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
 
+    @app.post("/v1/telemetry/events", response_model=TelemetryEvent)
     @app.post("/v1/telemetry/connector-events", response_model=TelemetryEvent)
     async def record_connector_event(
         event: TelemetryEvent,

@@ -13,7 +13,7 @@
 
 - 安装说明页：`${MOE_PUBLIC_BASE_URL}/beta`
 - 一键安装脚本：`${MOE_PUBLIC_BASE_URL}/install.sh`
-- 发布包下载：`${MOE_PUBLIC_BASE_URL}/releases/moe-connector-macos.tar.gz`
+- 发布包下载：`${MOE_PUBLIC_BASE_URL}/releases/moeskills-macos.tar.gz`
 
 ## 2. 推荐安装命令
 
@@ -23,9 +23,24 @@
 curl -fsSL ${MOE_PUBLIC_BASE_URL}/install.sh | \
   bash -s -- \
   --server-url ${MOE_PUBLIC_BASE_URL} \
-  --api-key <YOUR_KEY> \
-  --host codex-cli
+  --api-key <YOUR_KEY>
 ```
+
+如果你希望直接让 agent 通过 CLI 调用，而不是先接宿主：
+
+```bash
+~/.local/bin/moeskills config set \
+  --server-url ${MOE_PUBLIC_BASE_URL} \
+  --api-key <YOUR_KEY>
+
+~/.local/bin/moeskills run \
+  --task "分析这个 CSV 并生成趋势图" \
+  --attach ./sales.csv \
+  --wait \
+  --json
+```
+
+如果你使用 Codex CLI、Claude Code 或 OpenClaw 并希望做宿主注册，再追加 `--host`。
 
 如果你使用 Claude Code：
 
@@ -63,11 +78,12 @@ curl -fsSL ${MOE_PUBLIC_BASE_URL}/install.sh | \
 
 ## 3. 安装后会发生什么
 
-- 创建 `~/.moe-connector/`
-- 写入 `~/.moe-connector/config.toml`
+- 创建 `~/.moeskills/`
+- 写入 `~/.moeskills/config.toml`
 - 创建 `~/MOE Outputs`
-- 安装本地命令 `~/.local/bin/moe-connector`
-- 把 MOE connector 注册进 `Codex CLI`、`Claude Code`，或者一个 OpenClaw agent workspace
+- 安装本地命令 `~/.local/bin/moeskills`
+- 安装兼容别名 `~/.local/bin/moe-connector`
+- 如显式传 `--host`，把 MOESkills 注册进 `Codex CLI`、`Claude Code`，或者一个 OpenClaw agent workspace
 - 自动执行一次 `doctor` 检查
 
 如果你使用 OpenClaw，还会：
@@ -81,19 +97,19 @@ curl -fsSL ${MOE_PUBLIC_BASE_URL}/install.sh | \
 如果你要手动复查：
 
 ```bash
-moe-connector doctor --host codex-cli
+moeskills doctor
 ```
 
 如果 `~/.local/bin` 不在 `PATH` 中，也可以直接运行：
 
 ```bash
-~/.local/bin/moe-connector doctor --host codex-cli
+~/.local/bin/moeskills doctor
 ```
 
 OpenClaw 手动复查：
 
 ```bash
-~/.local/bin/moe-connector doctor --host openclaw --workspace-path ~/.openclaw/workspace-your-agent
+~/.local/bin/moeskills host doctor openclaw --workspace-path ~/.openclaw/workspace-your-agent
 ```
 
 预期结果：
@@ -138,13 +154,13 @@ OpenClaw 手动复查：
 - 再执行一次：
 
 ```bash
-moe-connector doctor --host codex-cli
+moeskills doctor
 ```
 
 如果你使用 OpenClaw：
 
 ```bash
-moe-connector doctor --host openclaw --workspace-path ~/.openclaw/workspace-your-agent
+moeskills host doctor openclaw --workspace-path ~/.openclaw/workspace-your-agent
 ```
 
 ### 6.4 OpenClaw 自动发现不到 workspace
@@ -156,13 +172,13 @@ moe-connector doctor --host openclaw --workspace-path ~/.openclaw/workspace-your
 ### 6.5 需要卸载
 
 ```bash
-~/.local/bin/moe-connector uninstall --host codex-cli
+~/.local/bin/moeskills host uninstall codex-cli
 ```
 
 OpenClaw 卸载：
 
 ```bash
-~/.local/bin/moe-connector uninstall --host openclaw --workspace-path ~/.openclaw/workspace-your-agent
+~/.local/bin/moeskills host uninstall openclaw --workspace-path ~/.openclaw/workspace-your-agent
 ```
 
 如果你是通过发布包安装的，也可以直接运行发布包中的 `uninstall.sh` 做完整清理。

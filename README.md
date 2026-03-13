@@ -1,13 +1,13 @@
 # MOE Toolkit
 
-Cloud-hosted MOE Toolkit runtime and local connector for curated remote analysis workflows.
+MOESkills CLI + Cloud API for curated remote analysis workflows.
 
 ## Components
 
 - `moe-cloud-api`: FastAPI service for uploads, task execution, run status, and artifacts
 - `moe-worker`: standalone queue worker that processes runs and launches curated tool containers
 - `cleanup-job`: background cleanup loop for expired uploads
-- `moe-connector`: local MCP-compatible connector for host tools
+- `moeskills`: agent-first CLI for config, runs, registry queries, artifacts, and optional host adapters
 
 ## Current Scope
 
@@ -20,6 +20,8 @@ Cloud-hosted MOE Toolkit runtime and local connector for curated remote analysis
 
 ## User Install
 
+详细使用说明见：[用户指南.md](./用户指南.md)
+
 如需在本机保留不应提交的部署参数，可复制 `.env.local.example` 为 `.env.local`。
 
 Public beta page:
@@ -29,6 +31,24 @@ ${MOE_PUBLIC_BASE_URL}/beta
 ```
 
 Install directly from the repo:
+
+```bash
+bash scripts/install-connector.sh \
+  --server-url ${MOE_PUBLIC_BASE_URL} \
+  --api-key <YOUR_KEY>
+```
+
+Run an agent task directly:
+
+```bash
+~/.local/bin/moeskills run \
+  --task "分析这个 CSV 并生成趋势图" \
+  --attach ./sales.csv \
+  --wait \
+  --json
+```
+
+Optional host integration for Codex CLI:
 
 ```bash
 bash scripts/install-connector.sh \
@@ -62,13 +82,12 @@ Build a release package for other users:
 bash scripts/build-connector-release.sh
 ```
 
-That produces `dist/moe-connector-macos.tar.gz`. Users can unpack it and run:
+That produces `dist/moeskills-macos.tar.gz`. Users can unpack it and run:
 
 ```bash
 bash install.sh \
   --server-url ${MOE_PUBLIC_BASE_URL} \
-  --api-key <YOUR_KEY> \
-  --host codex-cli
+  --api-key <YOUR_KEY>
 ```
 
 OpenClaw task artifacts download into the selected agent workspace under `MOE Outputs/`.

@@ -16,6 +16,9 @@ from moe_toolkit.schemas.common import (
     RemoteTaskRequest,
     RunRecord,
     TaskAccepted,
+    TelemetryEvent,
+    ToolManifest,
+    ToolSummary,
     UploadRef,
 )
 
@@ -55,6 +58,28 @@ class CloudClient:
             response.raise_for_status()
             payload: dict[str, Any] = response.json()
         return HealthResponse.model_validate(payload)
+
+    async def request(
+        self,
+        method: str,
+        path: str,
+        *,
+        json_body: Any | None = None,
+    ) -> httpx.Response:
+        """Executes a generic authenticated request against the cloud API."""
+
+        async with httpx.AsyncClient(
+            base_url=self._config.server_url,
+            timeout=self._config.request_timeout_seconds,
+            transport=self._transport,
+        ) as client:
+            response = await client.request(
+                method.upper(),
+                path,
+                json=json_body,
+                headers=self._headers,
+            )
+        return response
 
     async def upload_file(self, source: Path) -> UploadRef:
         """Uploads a local file to the cloud service."""
@@ -138,6 +163,58 @@ class CloudClient:
             response.raise_for_status()
             payload: list[dict[str, Any]] = response.json()
         return [ArtifactRef.model_validate(item) for item in payload]
+
+    async def search_tools(
+        self,
+        *,
+        capability: str | None = None,
+        input_type: str | None = None,
+        enabled: bool | None = None,
+    ) -> list[ToolSummary]:
+        """Searches curated tools through the public registry endpoint."""
+
+        query: list[str] = []
+        if capability is not None:
+            query.append(f"capability={capability}")
+        if input_type is not None:
+            query.append(f"input_type={input_type}")
+        if enabled is not None:
+            query.append(f"enabled={str(enabled).lower()}")
+        path = "/v1/registry/tools/search"
+        if query:
+            path = f"{path}?{'&'.join(query)}"
+        response = await self.request("GET", path)
+        response.raise_for_status()
+        payload: list[dict[str, Any]] = response.json()
+        return [ToolSummary.model_validate(item) for item in payload]
+
+    async def get_tool(self, tool_id: str) -> ToolSummary:
+        """Loads a single curated tool summary."""
+
+        response = await self.request("GET", f"/v1/registry/tools/{tool_id}")
+        response.raise_for_status()
+        payload: dict[str, Any] = response.json()
+        return ToolSummary.model_validate(payload)
+
+    async def get_manifest(self, tool_id: str, version: str) -> ToolManifest:
+        """Loads a full curated tool manifest."""
+
+        response = await self.request("GET", f"/v1/registry/manifests/{tool_id}/{version}")
+        response.raise_for_status()
+        payload: dict[str, Any] = response.json()
+        return ToolManifest.model_validate(payload)
+
+    async def record_telemetry(self, event: TelemetryEvent) -> TelemetryEvent:
+        """Records a connector telemetry event through the stable endpoint."""
+
+        response = await self.request(
+            "POST",
+            "/v1/telemetry/events",
+            json_body=event.model_dump(mode="json"),
+        )
+        response.raise_for_status()
+        payload: dict[str, Any] = response.json()
+        return TelemetryEvent.model_validate(payload)
 
     async def download_artifact(self, artifact: ArtifactRef, output_dir: Path) -> Path:
         """Downloads an artifact to the connector output directory."""

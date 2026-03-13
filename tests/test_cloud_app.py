@@ -48,7 +48,7 @@ def test_health_with_invalid_auth_returns_false() -> None:
 def test_beta_install_page_and_release_endpoints(tmp_path) -> None:
     releases_dir = tmp_path / "releases"
     releases_dir.mkdir(parents=True)
-    archive_path = releases_dir / "moe-connector-macos.tar.gz"
+    archive_path = releases_dir / "moeskills-macos.tar.gz"
     archive_path.write_bytes(b"fake archive")
 
     app = create_app(
@@ -61,19 +61,23 @@ def test_beta_install_page_and_release_endpoints(tmp_path) -> None:
     with TestClient(app) as client:
         beta_response = client.get("/beta")
         install_response = client.get("/install.sh")
-        release_response = client.get("/releases/moe-connector-macos.tar.gz")
+        release_response = client.get("/releases/moeskills-macos.tar.gz")
+        legacy_release_response = client.get("/releases/moe-connector-macos.tar.gz")
 
         assert beta_response.status_code == 200
         assert "MOE Toolkit Beta" in beta_response.text
         assert "curl -fsSL http://example.test:8080/install.sh" in beta_response.text
+        assert "moeskills run --task" in beta_response.text
 
         assert install_response.status_code == 200
-        assert 'ARCHIVE_URL="http://example.test:8080/releases/moe-connector-macos.tar.gz"' in install_response.text
+        assert 'ARCHIVE_URL="http://example.test:8080/releases/moeskills-macos.tar.gz"' in install_response.text
         assert 'LC_ALL=C tar -xzf "${ARCHIVE_PATH}" -C "${TMP_DIR}"' in install_response.text
-        assert 'bash "${TMP_DIR}/moe-connector-release/install.sh" "$@"' in install_response.text
+        assert 'bash "${TMP_DIR}/moeskills-release/install.sh" "$@"' in install_response.text
 
         assert release_response.status_code == 200
         assert release_response.content == b"fake archive"
+        assert legacy_release_response.status_code == 200
+        assert legacy_release_response.content == b"fake archive"
         head_response = client.head("/releases/moe-connector-macos.tar.gz")
         assert head_response.status_code == 200
 
@@ -81,7 +85,7 @@ def test_beta_install_page_and_release_endpoints(tmp_path) -> None:
 def test_release_archive_returns_404_when_missing(tmp_path) -> None:
     app = create_app(CloudSettings(storage_root=tmp_path, api_keys_raw="alpha-key"))
     with TestClient(app) as client:
-        response = client.get("/releases/moe-connector-macos.tar.gz")
+        response = client.get("/releases/moeskills-macos.tar.gz")
 
     assert response.status_code == 404
 
@@ -281,6 +285,19 @@ def test_registry_and_telemetry_endpoints(tmp_path) -> None:
         )
         assert telemetry_response.status_code == 200
         assert telemetry_response.json()["event_type"] == "doctor"
+
+        stable_telemetry_response = client.post(
+            "/v1/telemetry/events",
+            json={
+                "event_type": "run",
+                "host_client": "cli",
+                "status": "success",
+                "platform": "macOS",
+            },
+            headers=headers,
+        )
+        assert stable_telemetry_response.status_code == 200
+        assert stable_telemetry_response.json()["host_client"] == "cli"
 
 
 def test_execute_task_returns_failed_no_match_for_unsupported_request(tmp_path) -> None:

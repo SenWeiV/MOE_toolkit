@@ -199,7 +199,7 @@ def render_email_body(record: BetaKeyRecord, *, server_url: str | None = None) -
         f"{install_command}\n\n"
         "注意事项：\n"
         "- 当前为 Beta 版本，使用 HTTP + API Key，不建议处理高敏感数据。\n"
-        "- 如需重新配置，可运行 `moe-connector configure`。\n"
+        "- 如需重新配置，可运行 `moeskills config set`。\n"
         f"{host_notes}"
         "- 如安装失败，请把终端输出回传给运营侧。\n"
     )

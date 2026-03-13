@@ -6,8 +6,9 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 . "${ROOT_DIR}/scripts/load-local-env.sh"
 DIST_DIR="${ROOT_DIR}/dist"
 WHEELS_DIR="${DIST_DIR}/wheels"
-RELEASE_DIR="${DIST_DIR}/moe-connector-release"
-ARCHIVE_PATH="${DIST_DIR}/moe-connector-macos.tar.gz"
+RELEASE_DIR="${DIST_DIR}/moeskills-release"
+ARCHIVE_PATH="${DIST_DIR}/moeskills-macos.tar.gz"
+LEGACY_ARCHIVE_PATH="${DIST_DIR}/moe-connector-macos.tar.gz"
 PYTHON_BIN="${PYTHON_BIN:-python3}"
 DEFAULT_SERVER_URL="${MOE_PUBLIC_BASE_URL:-http://127.0.0.1:8080}"
 
@@ -34,14 +35,16 @@ cp "${ROOT_DIR}/scripts/uninstall-connector.sh" "${RELEASE_DIR}/uninstall.sh"
 cp "${ROOT_DIR}/README.md" "${RELEASE_DIR}/README.md"
 
 LC_ALL=C tar -C "${DIST_DIR}" -czf "${ARCHIVE_PATH}" "$(basename "${RELEASE_DIR}")"
+cp "${ARCHIVE_PATH}" "${LEGACY_ARCHIVE_PATH}"
 
 cat <<EOF
-Connector release package created.
+MOESkills release package created.
 
 Release dir: ${RELEASE_DIR}
 Archive: ${ARCHIVE_PATH}
+Legacy alias archive: ${LEGACY_ARCHIVE_PATH}
 Wheel: $(basename "${latest_wheel}")
 
 Users can unpack the archive and run:
-  bash install.sh --server-url ${DEFAULT_SERVER_URL} --api-key <YOUR_KEY> --host codex-cli
+  bash install.sh --server-url ${DEFAULT_SERVER_URL} --api-key <YOUR_KEY>
 EOF

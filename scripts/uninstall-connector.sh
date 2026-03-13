@@ -9,18 +9,22 @@ Options:
   --host HOST        Remove host registration for claude-code, codex-cli, or openclaw (repeatable)
   --all-hosts        Remove registrations for all supported hosts
   --openclaw-workspace P  Target OpenClaw workspace path when uninstalling openclaw
-  --purge-config     Delete ~/.moe-connector/config.toml after uninstall
+  --purge-config     Delete ~/.moeskills/config.toml after uninstall
   --purge-output     Delete ~/MOE Outputs after uninstall
   --help             Show this help message
 EOF
 }
 
-CONNECTOR_HOME="${HOME}/.moe-connector"
+CONNECTOR_HOME="${HOME}/.moeskills"
+LEGACY_CONNECTOR_HOME="${HOME}/.moe-connector"
 RUNTIME_DIR="${CONNECTOR_HOME}/runtime"
 CONFIG_PATH="${CONNECTOR_HOME}/config.toml"
+LEGACY_RUNTIME_DIR="${LEGACY_CONNECTOR_HOME}/runtime"
+LEGACY_CONFIG_PATH="${LEGACY_CONNECTOR_HOME}/config.toml"
 OUTPUT_DIR="${HOME}/MOE Outputs"
 BIN_DIR="${HOME}/.local/bin"
-COMMAND_SHIM="${BIN_DIR}/moe-connector"
+COMMAND_SHIM="${BIN_DIR}/moeskills"
+LEGACY_COMMAND_SHIM="${BIN_DIR}/moe-connector"
 PURGE_CONFIG=0
 PURGE_OUTPUT=0
 HOSTS=()
@@ -76,13 +80,17 @@ run_uninstall() {
   connector_command=""
   if [[ -x "${COMMAND_SHIM}" ]]; then
     connector_command="${COMMAND_SHIM}"
-  elif [[ -x "${RUNTIME_DIR}/bin/moe-connector" ]]; then
-    connector_command="${RUNTIME_DIR}/bin/moe-connector"
+  elif [[ -x "${RUNTIME_DIR}/bin/moeskills" ]]; then
+    connector_command="${RUNTIME_DIR}/bin/moeskills"
+  elif [[ -x "${LEGACY_COMMAND_SHIM}" ]]; then
+    connector_command="${LEGACY_COMMAND_SHIM}"
+  elif [[ -x "${LEGACY_RUNTIME_DIR}/bin/moe-connector" ]]; then
+    connector_command="${LEGACY_RUNTIME_DIR}/bin/moe-connector"
   fi
 
   if [[ -n "${connector_command}" ]]; then
     for host in "${HOSTS[@]}"; do
-      UNINSTALL_ARGS=(uninstall --host "${host}")
+      UNINSTALL_ARGS=(host uninstall "${host}")
       if [[ "${host}" == "openclaw" && -n "${OPENCLAW_WORKSPACE}" ]]; then
         UNINSTALL_ARGS+=(--workspace-path "${OPENCLAW_WORKSPACE}")
       fi
@@ -96,13 +104,22 @@ run_uninstall
 if [[ -f "${COMMAND_SHIM}" ]]; then
   rm -f "${COMMAND_SHIM}"
 fi
+if [[ -f "${LEGACY_COMMAND_SHIM}" ]]; then
+  rm -f "${LEGACY_COMMAND_SHIM}"
+fi
 
 if [[ -d "${RUNTIME_DIR}" ]]; then
   rm -rf "${RUNTIME_DIR}"
 fi
+if [[ -d "${LEGACY_RUNTIME_DIR}" ]]; then
+  rm -rf "${LEGACY_RUNTIME_DIR}"
+fi
 
 if [[ ${PURGE_CONFIG} -eq 1 && -f "${CONFIG_PATH}" ]]; then
   rm -f "${CONFIG_PATH}"
+fi
+if [[ ${PURGE_CONFIG} -eq 1 && -f "${LEGACY_CONFIG_PATH}" ]]; then
+  rm -f "${LEGACY_CONFIG_PATH}"
 fi
 
 if [[ ${PURGE_OUTPUT} -eq 1 && -d "${OUTPUT_DIR}" ]]; then
@@ -110,10 +127,11 @@ if [[ ${PURGE_OUTPUT} -eq 1 && -d "${OUTPUT_DIR}" ]]; then
 fi
 
 cat <<EOF
-MOE Connector removed.
+MOESkills removed.
 
 Removed runtime: ${RUNTIME_DIR}
 Removed shim: ${COMMAND_SHIM}
+Removed legacy shim: ${LEGACY_COMMAND_SHIM}
 Host registrations processed: ${HOSTS[*]}
 Config kept: $([[ ${PURGE_CONFIG} -eq 1 ]] && echo no || echo yes)
 Output dir kept: $([[ ${PURGE_OUTPUT} -eq 1 ]] && echo no || echo yes)

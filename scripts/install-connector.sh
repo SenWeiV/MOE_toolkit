@@ -6,12 +6,12 @@ usage() {
 Usage: install-connector.sh [options]
 
 Options:
-  --server-url URL        Configure connector to use this cloud URL
-  --api-key KEY           Configure connector with this API key
+  --server-url URL        Configure MOESkills to use this cloud URL
+  --api-key KEY           Configure MOESkills with this API key
   --host HOST             Install host registration for claude-code, codex-cli, or openclaw (repeatable)
   --openclaw-workspace P  Target OpenClaw workspace path when --host openclaw is used
   --output-dir DIR        Output directory for downloaded artifacts
-  --config-path PATH      Connector config path (default: ~/.moe-connector/config.toml)
+  --config-path PATH      Config path (default: ~/.moeskills/config.toml)
   --python BIN            Python executable to use (default: python3)
   --force                 Recreate the runtime even if it already exists
   --skip-doctor           Skip post-install doctor check
@@ -34,12 +34,14 @@ if [[ -f "${LOCAL_ENV_HELPER}" ]]; then
   . "${LOCAL_ENV_HELPER}"
 fi
 
-CONNECTOR_HOME="${HOME}/.moe-connector"
+CONNECTOR_HOME="${HOME}/.moeskills"
+LEGACY_CONNECTOR_HOME="${HOME}/.moe-connector"
 RUNTIME_DIR="${CONNECTOR_HOME}/runtime"
 CONFIG_PATH="${CONNECTOR_HOME}/config.toml"
 OUTPUT_DIR="${HOME}/MOE Outputs"
 BIN_DIR="${HOME}/.local/bin"
-COMMAND_SHIM="${BIN_DIR}/moe-connector"
+COMMAND_SHIM="${BIN_DIR}/moeskills"
+LEGACY_COMMAND_SHIM="${BIN_DIR}/moe-connector"
 PYTHON_BIN="${PYTHON_BIN:-python3}"
 SERVER_URL=""
 API_KEY=""
@@ -136,6 +138,9 @@ PACKAGE_TARGET="$(resolve_package_target)"
 CONFIG_DIR="$(dirname "${CONFIG_PATH}")"
 
 mkdir -p "${CONNECTOR_HOME}" "${OUTPUT_DIR}" "${BIN_DIR}" "${CONFIG_DIR}"
+if [[ "${CONFIG_PATH}" == "${CONNECTOR_HOME}/config.toml" && ! -f "${CONFIG_PATH}" && -f "${LEGACY_CONNECTOR_HOME}/config.toml" ]]; then
+  cp "${LEGACY_CONNECTOR_HOME}/config.toml" "${CONFIG_PATH}"
+fi
 if [[ ${FORCE_INSTALL} -eq 1 && -d "${RUNTIME_DIR}" ]]; then
   rm -rf "${RUNTIME_DIR}"
 fi
@@ -147,26 +152,34 @@ python -m pip install --no-cache-dir "${PACKAGE_TARGET}" >/dev/null
 
 cat > "${COMMAND_SHIM}" <<EOF
 #!/usr/bin/env bash
-exec "${RUNTIME_DIR}/bin/moe-connector" "\$@"
+exec "${RUNTIME_DIR}/bin/moeskills" "\$@"
 EOF
 chmod 755 "${COMMAND_SHIM}"
+
+cat > "${LEGACY_COMMAND_SHIM}" <<EOF
+#!/usr/bin/env bash
+exec "${RUNTIME_DIR}/bin/moe-connector" "\$@"
+EOF
+chmod 755 "${LEGACY_COMMAND_SHIM}"
 
 if [[ -n "${SERVER_URL}" || -n "${API_KEY}" ]]; then
   if [[ -z "${SERVER_URL}" || -z "${API_KEY}" ]]; then
     echo "--server-url and --api-key must be provided together." >&2
     exit 1
   fi
-  "${COMMAND_SHIM}" configure \
+  "${COMMAND_SHIM}" config set \
     --server-url "${SERVER_URL}" \
     --api-key "${API_KEY}" \
     --output-dir "${OUTPUT_DIR}" \
+    --host-client cli \
     --config-path "${CONFIG_PATH}"
 fi
 
 for host in "${HOSTS[@]}"; do
   INSTALL_ARGS=(
+    host
     install
-    --host "${host}"
+    "${host}"
     --command-path "${COMMAND_SHIM}"
     --config-path "${CONFIG_PATH}"
   )
@@ -177,21 +190,26 @@ for host in "${HOSTS[@]}"; do
 done
 
 if [[ ${SKIP_DOCTOR} -eq 0 && -f "${CONFIG_PATH}" ]]; then
-  DOCTOR_ARGS=(doctor --config-path "${CONFIG_PATH}")
-  for host in "${HOSTS[@]}"; do
-    DOCTOR_ARGS+=(--host "${host}")
-  done
-  if [[ " ${HOSTS[*]} " == *" openclaw "* && -n "${OPENCLAW_WORKSPACE}" ]]; then
-    DOCTOR_ARGS+=(--workspace-path "${OPENCLAW_WORKSPACE}")
+  "${COMMAND_SHIM}" doctor --config-path "${CONFIG_PATH}"
+  if [[ ${#HOSTS[@]} -gt 0 ]]; then
+    DOCTOR_ARGS=(host doctor)
+    for host in "${HOSTS[@]}"; do
+      DOCTOR_ARGS+=("${host}")
+    done
+    if [[ " ${HOSTS[*]} " == *" openclaw "* && -n "${OPENCLAW_WORKSPACE}" ]]; then
+      DOCTOR_ARGS+=(--workspace-path "${OPENCLAW_WORKSPACE}")
+    fi
+    DOCTOR_ARGS+=(--config-path "${CONFIG_PATH}")
+    "${COMMAND_SHIM}" "${DOCTOR_ARGS[@]}"
   fi
-  "${COMMAND_SHIM}" "${DOCTOR_ARGS[@]}"
 fi
 
 cat <<EOF
-MOE Connector installed.
+MOESkills installed.
 
 Runtime: ${RUNTIME_DIR}
 Command: ${COMMAND_SHIM}
+Compatibility alias: ${LEGACY_COMMAND_SHIM}
 Config: ${CONFIG_PATH}
 Output dir: ${OUTPUT_DIR}
 Package source: ${PACKAGE_TARGET}
@@ -201,7 +219,7 @@ if [[ ":${PATH}:" != *":${BIN_DIR}:"* ]]; then
   cat <<EOF
 
 Warning: ${BIN_DIR} is not currently on your PATH.
-Add this to your shell profile if you want to call moe-connector directly:
+Add this to your shell profile if you want to call moeskills directly:
   export PATH="${BIN_DIR}:\$PATH"
 EOF
 fi
@@ -210,8 +228,8 @@ if [[ ! -f "${CONFIG_PATH}" ]]; then
   cat <<EOF
 
 Next steps:
-  ${COMMAND_SHIM} configure --server-url ${DEFAULT_SERVER_URL} --api-key <YOUR_KEY>
-  ${COMMAND_SHIM} install --host codex-cli --command-path ${COMMAND_SHIM} --config-path ${CONFIG_PATH}
+  ${COMMAND_SHIM} config set --server-url ${DEFAULT_SERVER_URL} --api-key <YOUR_KEY>
+  ${COMMAND_SHIM} host install codex-cli --command-path ${COMMAND_SHIM} --config-path ${CONFIG_PATH}
   ${COMMAND_SHIM} doctor --config-path ${CONFIG_PATH}
 EOF
 fi

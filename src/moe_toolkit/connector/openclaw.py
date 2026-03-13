@@ -270,10 +270,13 @@ def build_wrapper_script(
 
     command_parts = [
         shlex.quote(connector_command),
-        "openclaw",
         "run",
         "--workspace-path",
         shlex.quote(str(workspace_path)),
+        "--wait",
+        "--json",
+        "--host-client",
+        "openclaw",
     ]
     if connector_config_path is not None:
         command_parts.extend(["--config-path", shlex.quote(str(connector_config_path))])
@@ -321,7 +324,7 @@ class OpenClawHostAdapter:
     def install(
         self,
         *,
-        connector_command: str = "moe-connector",
+        connector_command: str = "moeskills",
         connector_config_path: Path | None = None,
     ) -> HostInstallResult:
         existing_tools = self.tools_path.read_text(encoding="utf-8") if self.tools_path.exists() else ""

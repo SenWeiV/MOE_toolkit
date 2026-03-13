@@ -24,12 +24,12 @@ class HostCommandSpec:
 def build_command_spec(
     host: str,
     *,
-    connector_command: str = "moe-connector",
+    connector_command: str = "moeskills",
     connector_config_path: Path | None = None,
 ) -> HostCommandSpec:
     """Builds the connector command spec for a given host."""
 
-    args = ["serve", "--host", host]
+    args = ["host", "serve", "--host", host]
     if connector_config_path is not None:
         args.extend(["--config-path", str(connector_config_path)])
     return HostCommandSpec(command=connector_command, args=args)
@@ -44,7 +44,7 @@ class CodexHostAdapter:
     def install(
         self,
         *,
-        connector_command: str = "moe-connector",
+        connector_command: str = "moeskills",
         connector_config_path: Path | None = None,
     ) -> HostInstallResult:
         spec = build_command_spec(
@@ -92,7 +92,7 @@ class ClaudeCodeHostAdapter:
     def install(
         self,
         *,
-        connector_command: str = "moe-connector",
+        connector_command: str = "moeskills",
         connector_config_path: Path | None = None,
     ) -> HostInstallResult:
         spec = build_command_spec(

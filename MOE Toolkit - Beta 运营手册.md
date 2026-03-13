@@ -8,7 +8,7 @@
 - 安装说明页：`${MOE_PUBLIC_BASE_URL}/beta`
 - 运营后台：`${MOE_PUBLIC_BASE_URL}/admin/login`
 - 安装脚本：`${MOE_PUBLIC_BASE_URL}/install.sh`
-- 发布包：`${MOE_PUBLIC_BASE_URL}/releases/moe-connector-macos.tar.gz`
+- 发布包：`${MOE_PUBLIC_BASE_URL}/releases/moeskills-macos.tar.gz`
 
 ## 2. API Key 管理
 
@@ -150,8 +150,9 @@ bash scripts/build-connector-release.sh
 
 产物：
 
-- `dist/moe-connector-macos.tar.gz`
-- `dist/moe-connector-release/`
+- `dist/moeskills-macos.tar.gz`
+- `dist/moeskills-release/`
+- `dist/moe-connector-macos.tar.gz`（兼容别名）
 
 ### 4.2 云端同步
 
@@ -165,6 +166,7 @@ bash scripts/deploy-cloud.sh
 
 ```text
 /opt/moe-toolkit/data/releases/moe-connector-macos.tar.gz
+/opt/moe-toolkit/data/releases/moeskills-macos.tar.gz
 ```
 
 应用会从这里对外暴露下载地址。
@@ -216,7 +218,7 @@ ${MOE_PUBLIC_BASE_URL}
 ${MOE_PUBLIC_BASE_URL}/beta
 
 推荐安装命令：
-curl -fsSL ${MOE_PUBLIC_BASE_URL}/install.sh | bash -s -- --server-url ${MOE_PUBLIC_BASE_URL} --api-key <USER_KEY> --host codex-cli
+curl -fsSL ${MOE_PUBLIC_BASE_URL}/install.sh | bash -s -- --server-url ${MOE_PUBLIC_BASE_URL} --api-key <USER_KEY>
 ```
 
 说明：
@@ -233,7 +235,7 @@ curl -fsSL ${MOE_PUBLIC_BASE_URL}/install.sh | bash -s -- --server-url ${MOE_PUB
 - `curl ${MOE_PUBLIC_BASE_URL}/beta`
 - `curl -I ${MOE_PUBLIC_BASE_URL}/admin/login`
 - `curl ${MOE_PUBLIC_BASE_URL}/install.sh`
-- `curl ${MOE_PUBLIC_BASE_URL}/releases/moe-connector-macos.tar.gz -I`
+- `curl ${MOE_PUBLIC_BASE_URL}/releases/moeskills-macos.tar.gz -I`
 - `python scripts/smoke-cloud.py --server-url ${MOE_PUBLIC_BASE_URL} --api-key <ADMIN_TEST_KEY>`
 
 ## 8. 当前限制

@@ -34,7 +34,7 @@ class ConnectorConfig(BaseModel):
 
     server_url: str = Field(default_factory=default_public_base_url)
     api_key: str = ""
-    host_client: str = "codex-cli"
+    host_client: str = "cli"
     output_dir: Path = Field(default_factory=lambda: Path.home() / "MOE Outputs")
     request_timeout_seconds: int = 60
     max_upload_size_mb: int = 100
@@ -50,7 +50,7 @@ class ConnectorConfig(BaseModel):
     @field_validator("host_client")
     @classmethod
     def validate_host_client(cls, value: str) -> str:
-        allowed = {"claude-code", "codex-cli", "openclaw"}
+        allowed = {"cli", "claude-code", "codex-cli", "openclaw"}
         if value not in allowed:
             raise ValueError(f"host_client must be one of {sorted(allowed)}")
         return value
@@ -142,7 +142,7 @@ class TelemetryEvent(BaseModel):
     @field_validator("host_client")
     @classmethod
     def validate_telemetry_host_client(cls, value: str) -> str:
-        allowed = {"claude-code", "codex-cli", "openclaw"}
+        allowed = {"cli", "claude-code", "codex-cli", "openclaw"}
         if value not in allowed:
             raise ValueError(f"host_client must be one of {sorted(allowed)}")
         return value
