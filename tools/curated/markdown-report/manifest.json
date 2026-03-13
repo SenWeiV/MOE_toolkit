@@ -1,0 +1,12 @@
+{
+  "tool_id": "markdown-report",
+  "version": "0.1.0",
+  "description": "Compile task results and previous artifacts into a Markdown report.",
+  "capabilities": ["report_export"],
+  "input_types": ["csv", "tsv", "xlsx"],
+  "output_types": ["md"],
+  "image": "moe-tool-markdown-report",
+  "network_required": false,
+  "enabled": true,
+  "priority": 80
+}

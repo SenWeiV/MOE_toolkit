@@ -1,0 +1,12 @@
+{
+  "tool_id": "pandas",
+  "version": "0.1.0",
+  "description": "Summarize CSV and TSV tables into JSON analysis artifacts.",
+  "capabilities": ["csv_parse", "table_read", "data_analysis"],
+  "input_types": ["csv", "tsv"],
+  "output_types": ["json"],
+  "image": "moe-tool-pandas",
+  "network_required": false,
+  "enabled": true,
+  "priority": 20
+}

@@ -10,6 +10,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Awaitable, Callable, Protocol
 
+from openpyxl import Workbook, load_workbook
+
 from moe_toolkit.schemas.common import RemoteTaskRequest, RoutePlan
 
 
@@ -36,17 +38,25 @@ class InlineExecutor:
     """Current in-process executor used for tests and local development."""
 
     async def execute(self, context: ExecutionContext) -> None:
+        selected_tools = context.route_plan.selected_tools or [
+            image.removeprefix("moe-tool-")
+            for image in context.route_plan.selected_images
+        ]
         for source in sorted(context.input_dir.iterdir()):
-            if source.suffix.lower() in {".csv", ".tsv"}:
+            if source.suffix.lower() not in {".csv", ".tsv", ".xlsx"}:
+                continue
+            if any(tool in selected_tools for tool in ["pandas", "openpyxl"]):
                 self._create_summary_artifacts(context, source)
+            if "matplotlib" in selected_tools and source.suffix.lower() in {".csv", ".tsv"}:
+                self._create_chart_artifact(context, source)
+            if "openpyxl" in selected_tools:
+                self._create_spreadsheet_artifact(context, source)
+        if "markdown-report" in selected_tools:
+            self._create_markdown_report(context)
         await asyncio.sleep(0)
 
     def _create_summary_artifacts(self, context: ExecutionContext, source: Path) -> None:
-        delimiter = "\t" if source.suffix.lower() == ".tsv" else ","
-        with source.open("r", encoding="utf-8", newline="") as handle:
-            reader = csv.DictReader(handle, delimiter=delimiter)
-            rows = list(reader)
-            fieldnames = reader.fieldnames or []
+        fieldnames, rows = self._load_rows(source)
 
         summary = {
             "source": source.name,
@@ -61,14 +71,78 @@ class InlineExecutor:
             encoding="utf-8",
         )
 
-        if summary["numeric_columns"] and any(
-            token in context.request.task.lower() for token in ["图", "chart", "plot", "trend", "趋势"]
-        ):
-            chart_path = context.artifacts_dir / f"{source.stem}-chart.svg"
-            chart_path.write_text(
-                self._build_svg_chart(rows, summary["numeric_columns"][0]),
-                encoding="utf-8",
-            )
+    def _create_chart_artifact(self, context: ExecutionContext, source: Path) -> None:
+        fieldnames, rows = self._load_rows(source)
+        numeric_columns = self._find_numeric_columns(rows, fieldnames)
+        if not numeric_columns:
+            return
+        chart_path = context.artifacts_dir / f"{source.stem}-chart.svg"
+        chart_path.write_text(
+            self._build_svg_chart(rows, numeric_columns[0]),
+            encoding="utf-8",
+        )
+
+    def _create_spreadsheet_artifact(self, context: ExecutionContext, source: Path) -> None:
+        fieldnames, rows = self._load_rows(source)
+        workbook = Workbook()
+        summary_sheet = workbook.active
+        summary_sheet.title = "summary"
+        summary_sheet.append(["source", source.name])
+        summary_sheet.append(["task", context.request.task])
+        summary_sheet.append(["rows", len(rows)])
+        summary_sheet.append(["columns", ", ".join(fieldnames)])
+        summary_sheet.append(["numeric_columns", ", ".join(self._find_numeric_columns(rows, fieldnames))])
+        data_sheet = workbook.create_sheet("data")
+        if fieldnames:
+            data_sheet.append(fieldnames)
+        for row in rows:
+            data_sheet.append([row.get(field, "") for field in fieldnames])
+        workbook.save(context.artifacts_dir / f"{source.stem}-report.xlsx")
+
+    def _create_markdown_report(self, context: ExecutionContext) -> None:
+        lines = [
+            "# MOE Toolkit Run Report",
+            "",
+            f"- Run ID: {context.run_id}",
+            f"- Task: {context.request.task}",
+            "",
+            "## Artifacts",
+        ]
+        artifact_names = sorted(path.name for path in context.artifacts_dir.iterdir() if path.is_file())
+        if artifact_names:
+            lines.extend(f"- {name}" for name in artifact_names)
+        else:
+            lines.append("- None")
+        (context.artifacts_dir / "run-report.md").write_text(
+            "\n".join(lines).rstrip() + "\n",
+            encoding="utf-8",
+        )
+
+    @staticmethod
+    def _load_rows(source: Path) -> tuple[list[str], list[dict[str, str]]]:
+        if source.suffix.lower() == ".xlsx":
+            workbook = load_workbook(source, read_only=True, data_only=True)
+            sheet = workbook.active
+            raw_rows = list(sheet.iter_rows(values_only=True))
+            if not raw_rows:
+                return [], []
+            fieldnames = [str(value or "").strip() for value in raw_rows[0]]
+            rows: list[dict[str, str]] = []
+            for raw_row in raw_rows[1:]:
+                row = {
+                    fieldnames[index]: "" if value is None else str(value)
+                    for index, value in enumerate(raw_row)
+                    if index < len(fieldnames) and fieldnames[index]
+                }
+                if row:
+                    rows.append(row)
+            return fieldnames, rows
+        delimiter = "\t" if source.suffix.lower() == ".tsv" else ","
+        with source.open("r", encoding="utf-8", newline="") as handle:
+            reader = csv.DictReader(handle, delimiter=delimiter)
+            rows = list(reader)
+            fieldnames = reader.fieldnames or []
+        return fieldnames, rows
 
     @staticmethod
     def _find_numeric_columns(rows: list[dict[str, str]], fieldnames: list[str]) -> list[str]:
@@ -189,6 +263,8 @@ def detect_media_type(path: Path) -> str:
         return "application/json"
     if suffix == ".svg":
         return "image/svg+xml"
+    if suffix == ".md":
+        return "text/markdown"
     if suffix == ".xlsx":
         return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     return "application/octet-stream"

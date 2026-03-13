@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 
 import pytest
+from openpyxl import Workbook
 
 from moe_toolkit.cloud.executors import (
     DockerExecutor,
@@ -23,7 +24,9 @@ def build_route_plan(*, selected_images: list[str] | None = None) -> RoutePlan:
         plan_id="plan-1",
         capabilities=["csv_parse", "data_analysis"],
         selected_images=images,
+        selected_tools=[image.removeprefix("moe-tool-") for image in images],
         execution_steps=images.copy(),
+        selection_reason="test",
         explanation="test plan",
     )
 
@@ -89,6 +92,40 @@ async def test_inline_executor_creates_summary_and_chart_artifacts(tmp_path) -> 
     summary = json.loads(summary_path.read_text(encoding="utf-8"))
     assert summary["rows"] == 3
     assert "value" in summary["numeric_columns"]
+
+
+@pytest.mark.asyncio
+async def test_inline_executor_creates_spreadsheet_and_markdown_artifacts(tmp_path) -> None:
+    source = tmp_path / "sales.xlsx"
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.append(["month", "value"])
+    sheet.append([1, 10])
+    sheet.append([2, 20])
+    workbook.save(source)
+    request = RemoteTaskRequest(
+        task="读取这个 Excel 并生成 Markdown report",
+        attachments=["upload-1"],
+    )
+    context = prepare_run_workspace(
+        storage_root=tmp_path,
+        run_id="run-1",
+        request=request,
+        upload_paths={"upload-1": source},
+        route_plan=build_route_plan(
+            selected_images=["moe-tool-openpyxl", "moe-tool-markdown-report"]
+        ),
+    )
+
+    await InlineExecutor().execute(context)
+
+    summary_path = context.artifacts_dir / "01-sales-summary.json"
+    spreadsheet_path = context.artifacts_dir / "01-sales-report.xlsx"
+    report_path = context.artifacts_dir / "run-report.md"
+    assert summary_path.exists()
+    assert spreadsheet_path.exists()
+    assert report_path.exists()
+    assert "MOE Toolkit Run Report" in report_path.read_text(encoding="utf-8")
 
 
 @pytest.mark.asyncio
@@ -189,6 +226,7 @@ async def test_docker_executor_maps_container_storage_root_to_host_path() -> Non
 def test_detect_media_type_and_number_parsing_helpers() -> None:
     assert detect_media_type(Path("report.json")) == "application/json"
     assert detect_media_type(Path("chart.svg")) == "image/svg+xml"
+    assert detect_media_type(Path("report.md")) == "text/markdown"
     assert detect_media_type(Path("table.xlsx")) == (
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )

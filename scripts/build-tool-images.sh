@@ -3,7 +3,13 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-docker build -t moe-tool-pandas "${ROOT_DIR}/tools/curated/pandas"
-docker build -t moe-tool-matplotlib "${ROOT_DIR}/tools/curated/matplotlib"
+for tool_dir in "${ROOT_DIR}"/tools/curated/*; do
+  if [[ ! -f "${tool_dir}/Dockerfile" ]]; then
+    continue
+  fi
+  tool_name="$(basename "${tool_dir}")"
+  image_name="moe-tool-${tool_name}"
+  docker build -t "${image_name}" "${tool_dir}"
+done
 
-echo "Built moe-tool-pandas and moe-tool-matplotlib"
+echo "Built curated MOE tool images"

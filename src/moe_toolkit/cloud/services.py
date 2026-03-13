@@ -8,13 +8,23 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Any
 
 from moe_toolkit.cloud.executors import (
     ExecutionBackend,
     detect_media_type,
     prepare_run_workspace,
 )
-from moe_toolkit.schemas.common import ArtifactRef, RemoteTaskRequest, RoutePlan, RunRecord, UploadRef
+from moe_toolkit.cloud.registry import CuratedRegistry, RouteDecision, RuleBasedCuratedRouter
+from moe_toolkit.schemas.common import (
+    ArtifactRef,
+    RemoteTaskRequest,
+    RunRecord,
+    TelemetryEvent,
+    ToolManifest,
+    ToolSummary,
+    UploadRef,
+)
 
 SUPPORTED_SUFFIXES = {".csv", ".tsv", ".xlsx", ".zip"}
 
@@ -40,6 +50,7 @@ class CloudService:
         storage_root: Path,
         base_url: str,
         executor: ExecutionBackend,
+        registry: CuratedRegistry | None = None,
         *,
         embedded_worker_enabled: bool = True,
         queue_poll_interval_seconds: float = 0.1,
@@ -51,14 +62,20 @@ class CloudService:
         self.run_root = storage_root / "runs"
         self.queue_pending_root = storage_root / "queue" / "pending"
         self.queue_claimed_root = storage_root / "queue" / "claimed"
+        self.telemetry_root = storage_root / "telemetry"
+        self.route_log_path = self.telemetry_root / "route_decisions.jsonl"
+        self.connector_event_log_path = self.telemetry_root / "connector_events.jsonl"
         self.upload_root.mkdir(parents=True, exist_ok=True)
         self.artifact_root.mkdir(parents=True, exist_ok=True)
         self.run_root.mkdir(parents=True, exist_ok=True)
         self.queue_pending_root.mkdir(parents=True, exist_ok=True)
         self.queue_claimed_root.mkdir(parents=True, exist_ok=True)
+        self.telemetry_root.mkdir(parents=True, exist_ok=True)
         self.base_url = base_url.rstrip("/")
         self.state = CloudState()
         self.executor = executor
+        self.registry = registry or CuratedRegistry()
+        self.router = RuleBasedCuratedRouter(self.registry)
         self.embedded_worker_enabled = embedded_worker_enabled
         self.queue_poll_interval_seconds = queue_poll_interval_seconds
         self.queue_claim_timeout_seconds = queue_claim_timeout_seconds
@@ -121,18 +138,25 @@ class CloudService:
     def create_run(self, request: RemoteTaskRequest) -> RunRecord:
         """Creates a run and enqueues it for background processing."""
 
+        uploads: list[UploadRef] = []
         for upload_id in request.attachments:
-            self._load_upload(upload_id)
+            upload, _ = self._load_upload(upload_id)
+            uploads.append(upload)
 
         run_id = uuid.uuid4().hex
-        route_plan = self._build_route_plan(request)
+        route_decision = self.router.build_route(task=request.task, uploads=uploads)
         run = RunRecord(
             run_id=run_id,
             session_id=request.session_id,
-            status="queued",
+            status="queued" if route_decision.route_plan.selected_tools else "failed",
             task=request.task,
-            route_plan=route_plan,
-            detail="Run accepted",
+            route_plan=route_decision.route_plan,
+            error_code=None if route_decision.route_plan.selected_tools else "unsupported_task",
+            detail=(
+                "Run accepted"
+                if route_decision.route_plan.selected_tools
+                else route_decision.route_plan.explanation
+            ),
         )
         self.state.runs[run_id] = run
         self.state.requests[run_id] = request
@@ -140,13 +164,40 @@ class CloudService:
         run_dir.mkdir(parents=True, exist_ok=True)
         self._persist_run(run)
         self._persist_request(run_id, request)
-        self._enqueue_run(run_id)
+        self._record_route_decision(
+            run_id=run_id,
+            task=request.task,
+            route_decision=route_decision,
+        )
+        if route_decision.route_plan.selected_tools:
+            self._enqueue_run(run_id)
         return run
 
     def get_run(self, run_id: str) -> RunRecord:
         """Returns an existing run or raises KeyError."""
 
         return self._load_run(run_id)
+
+    def search_tools(
+        self,
+        *,
+        capability: str | None = None,
+        input_type: str | None = None,
+        enabled: bool | None = None,
+    ) -> list[ToolSummary]:
+        """Returns curated tools with optional filters."""
+
+        return self.registry.search(capability=capability, input_type=input_type, enabled=enabled)
+
+    def get_tool_summary(self, tool_id: str) -> ToolSummary:
+        """Returns a single curated tool summary."""
+
+        return self.registry.get_summary(tool_id)
+
+    def get_tool_manifest(self, tool_id: str, version: str) -> ToolManifest:
+        """Returns a full curated manifest by tool/version."""
+
+        return self.registry.get_manifest(tool_id, version)
 
     def list_artifacts(self, run_id: str) -> list[ArtifactRef]:
         """Returns artifacts associated with a run."""
@@ -161,20 +212,21 @@ class CloudService:
             self._load_artifact(artifact_id)
         return self.state.artifact_paths[artifact_id]
 
-    def _build_route_plan(self, request: RemoteTaskRequest) -> RoutePlan:
-        capabilities = ["csv_parse", "data_analysis"]
-        selected_images = ["moe-tool-pandas"]
-        task_text = request.task.lower()
-        if any(token in task_text for token in ["图", "chart", "plot", "trend", "趋势"]):
-            capabilities.append("visualization")
-            selected_images.append("moe-tool-matplotlib")
-        return RoutePlan(
-            plan_id=uuid.uuid4().hex,
-            capabilities=capabilities,
-            selected_images=selected_images,
-            execution_steps=selected_images.copy(),
-            explanation="Curated CSV analysis route selected.",
-        )
+    def record_connector_event(self, event: TelemetryEvent) -> TelemetryEvent:
+        """Persists a connector telemetry event."""
+
+        self._append_jsonl(self.connector_event_log_path, event.model_dump(mode="json"))
+        return event
+
+    def list_route_decisions(self) -> list[dict[str, Any]]:
+        """Returns persisted route decisions for tests and debugging."""
+
+        return self._read_jsonl(self.route_log_path)
+
+    def list_connector_events(self) -> list[dict[str, Any]]:
+        """Returns persisted connector telemetry events for tests and debugging."""
+
+        return self._read_jsonl(self.connector_event_log_path)
 
     async def _worker_loop(self) -> None:
         """Consumes queued runs and processes them sequentially."""
@@ -290,6 +342,32 @@ class CloudService:
     def _run_dir(self, run_id: str) -> Path:
         return self.run_root / run_id
 
+    def _record_route_decision(
+        self,
+        *,
+        run_id: str,
+        task: str,
+        route_decision: RouteDecision,
+    ) -> None:
+        self._append_jsonl(
+            self.route_log_path,
+            {
+                "run_id": run_id,
+                "task": task,
+                "required_capabilities": route_decision.required_capabilities,
+                "input_types": route_decision.input_types,
+                "selected_tools": route_decision.route_plan.selected_tools,
+                "selected_images": route_decision.route_plan.selected_images,
+                "selection_reason": route_decision.route_plan.selection_reason,
+                "explanation": route_decision.route_plan.explanation,
+                "matches": [
+                    match.model_dump(mode="json")
+                    for match in route_decision.matches
+                ],
+                "created_at": datetime.now(UTC).isoformat(),
+            },
+        )
+
     def _run_record_path(self, run_id: str) -> Path:
         return self._run_dir(run_id) / "run_record.json"
 
@@ -336,6 +414,23 @@ class CloudService:
             json.dumps(payload, indent=2, ensure_ascii=False) + "\n",
             encoding="utf-8",
         )
+
+    @staticmethod
+    def _append_jsonl(path: Path, payload: dict[str, Any]) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(payload, ensure_ascii=False) + "\n")
+
+    @staticmethod
+    def _read_jsonl(path: Path) -> list[dict[str, Any]]:
+        if not path.exists():
+            return []
+        records: list[dict[str, Any]] = []
+        for line in path.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            records.append(json.loads(line))
+        return records
 
     def _persist_run(self, run: RunRecord) -> None:
         self.state.runs[run.run_id] = run

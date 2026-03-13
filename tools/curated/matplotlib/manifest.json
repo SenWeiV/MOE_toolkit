@@ -1,0 +1,12 @@
+{
+  "tool_id": "matplotlib",
+  "version": "0.1.0",
+  "description": "Generate SVG preview charts for numeric table columns.",
+  "capabilities": ["chart_generate", "visualization"],
+  "input_types": ["csv", "tsv"],
+  "output_types": ["svg"],
+  "image": "moe-tool-matplotlib",
+  "network_required": false,
+  "enabled": true,
+  "priority": 40
+}

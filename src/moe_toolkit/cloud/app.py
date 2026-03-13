@@ -38,6 +38,9 @@ from moe_toolkit.schemas.common import (
     RemoteTaskRequest,
     RunRecord,
     TaskAccepted,
+    TelemetryEvent,
+    ToolManifest,
+    ToolSummary,
     UploadRef,
 )
 
@@ -608,6 +611,51 @@ def create_app(
             )
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @app.get("/v1/registry/tools/search", response_model=list[ToolSummary])
+    async def search_registry_tools(
+        capability: str | None = Query(default=None),
+        input_type: str | None = Query(default=None),
+        enabled: bool | None = Query(default=None),
+        cloud_service: CloudService = Depends(get_cloud_service),
+        _: str = Depends(validate_api_key),
+    ) -> list[ToolSummary]:
+        return cloud_service.search_tools(
+            capability=capability,
+            input_type=input_type,
+            enabled=enabled,
+        )
+
+    @app.get("/v1/registry/tools/{tool_id}", response_model=ToolSummary)
+    async def get_registry_tool(
+        tool_id: str,
+        cloud_service: CloudService = Depends(get_cloud_service),
+        _: str = Depends(validate_api_key),
+    ) -> ToolSummary:
+        try:
+            return cloud_service.get_tool_summary(tool_id)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    @app.get("/v1/registry/manifests/{tool_id}/{version}", response_model=ToolManifest)
+    async def get_registry_manifest(
+        tool_id: str,
+        version: str,
+        cloud_service: CloudService = Depends(get_cloud_service),
+        _: str = Depends(validate_api_key),
+    ) -> ToolManifest:
+        try:
+            return cloud_service.get_tool_manifest(tool_id, version)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    @app.post("/v1/telemetry/connector-events", response_model=TelemetryEvent)
+    async def record_connector_event(
+        event: TelemetryEvent,
+        cloud_service: CloudService = Depends(get_cloud_service),
+        _: str = Depends(validate_api_key),
+    ) -> TelemetryEvent:
+        return cloud_service.record_connector_event(event)
 
     @app.post("/v1/tasks/execute", response_model=TaskAccepted)
     async def execute_task(

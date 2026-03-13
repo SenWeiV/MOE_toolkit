@@ -95,13 +95,68 @@ class ArtifactRef(BaseModel):
     download_url: str
 
 
+class ToolSummary(BaseModel):
+    """Public summary for a curated tool in the registry."""
+
+    tool_id: str
+    version: str
+    description: str
+    capabilities: list[str]
+    input_types: list[str]
+    output_types: list[str]
+    enabled: bool = True
+    priority: int = 100
+
+
+class ToolManifest(ToolSummary):
+    """Full manifest used by the curated registry and router."""
+
+    image: str
+    network_required: bool = False
+
+
+class ToolMatch(BaseModel):
+    """Represents a router-selected tool candidate."""
+
+    tool_id: str
+    image: str
+    matched_capabilities: list[str] = Field(default_factory=list)
+    score: int = 0
+    reason: str = ""
+
+
+class TelemetryEvent(BaseModel):
+    """Telemetry payload accepted from connectors."""
+
+    event_type: str
+    host_client: str
+    status: str
+    tool_id: str | None = None
+    tool_version: str | None = None
+    run_id: str | None = None
+    error_code: str | None = None
+    duration_ms: int | None = None
+    platform: str = ""
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+    @field_validator("host_client")
+    @classmethod
+    def validate_telemetry_host_client(cls, value: str) -> str:
+        allowed = {"claude-code", "codex-cli", "openclaw"}
+        if value not in allowed:
+            raise ValueError(f"host_client must be one of {sorted(allowed)}")
+        return value
+
+
 class RoutePlan(BaseModel):
     """Minimal route plan chosen for a run."""
 
     plan_id: str
     capabilities: list[str]
     selected_images: list[str]
+    selected_tools: list[str] = Field(default_factory=list)
     execution_steps: list[str]
+    selection_reason: str = ""
     explanation: str
 
 

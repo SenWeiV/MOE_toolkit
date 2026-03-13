@@ -7,7 +7,7 @@ import pytest
 
 from moe_toolkit.cloud.executors import InlineExecutor
 from moe_toolkit.cloud.services import CloudService
-from moe_toolkit.schemas.common import RemoteTaskRequest
+from moe_toolkit.schemas.common import RemoteTaskRequest, TelemetryEvent
 
 
 @pytest.mark.asyncio
@@ -43,6 +43,8 @@ async def test_cloud_service_processes_runs_from_queue(tmp_path) -> None:
             "image/svg+xml",
         }
         assert service.state.run_roots[run.run_id].joinpath("run.json").exists()
+        route_logs = service.list_route_decisions()
+        assert route_logs[-1]["selected_tools"] == ["pandas", "matplotlib"]
     finally:
         await service.stop()
 
@@ -145,3 +147,53 @@ def test_cloud_service_drops_stale_claim_for_terminal_run(tmp_path) -> None:
     assert recovered == []
     assert not service._queue_ticket_path(run.run_id, claimed=True).exists()
     assert not service._queue_ticket_path(run.run_id).exists()
+
+
+def test_cloud_service_returns_failed_run_for_unsupported_task(tmp_path) -> None:
+    service = CloudService(
+        storage_root=tmp_path,
+        base_url="http://testserver",
+        executor=InlineExecutor(),
+        embedded_worker_enabled=False,
+    )
+
+    run = service.create_run(
+        RemoteTaskRequest(task="帮我联网搜索最新 AI 新闻", attachments=[])
+    )
+
+    assert run.status == "failed"
+    assert run.error_code == "unsupported_task"
+    assert run.route_plan.selection_reason == "no_match"
+    assert run.route_plan.selected_tools == []
+    assert "missing capabilities [web_research]" in run.detail
+
+
+def test_cloud_service_exposes_registry_and_telemetry(tmp_path) -> None:
+    service = CloudService(
+        storage_root=tmp_path,
+        base_url="http://testserver",
+        executor=InlineExecutor(),
+        embedded_worker_enabled=False,
+    )
+
+    tools = service.search_tools(capability="data_analysis")
+    assert {tool.tool_id for tool in tools} >= {"pandas", "openpyxl"}
+
+    manifest = service.get_tool_manifest("pandas", "0.1.0")
+    assert manifest.image == "moe-tool-pandas"
+
+    event = service.record_connector_event(
+        TelemetryEvent(
+            event_type="task.execute",
+            host_client="openclaw",
+            status="success",
+            run_id="run-1",
+            tool_id="pandas",
+            tool_version="0.1.0",
+            duration_ms=120,
+            platform="macOS",
+        )
+    )
+    assert event.host_client == "openclaw"
+    logged_events = service.list_connector_events()
+    assert logged_events[-1]["tool_id"] == "pandas"

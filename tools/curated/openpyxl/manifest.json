@@ -1,0 +1,12 @@
+{
+  "tool_id": "openpyxl",
+  "version": "0.1.0",
+  "description": "Read XLSX inputs and export spreadsheet report workbooks.",
+  "capabilities": ["table_read", "data_analysis", "spreadsheet_generate"],
+  "input_types": ["csv", "tsv", "xlsx"],
+  "output_types": ["json", "xlsx"],
+  "image": "moe-tool-openpyxl",
+  "network_required": false,
+  "enabled": true,
+  "priority": 30
+}

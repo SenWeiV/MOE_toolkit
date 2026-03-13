@@ -1,6 +1,6 @@
 # MOE Toolkit
 
-Cloud-hosted MOE Toolkit runtime and local connector for remote CSV analysis workflows.
+Cloud-hosted MOE Toolkit runtime and local connector for curated remote analysis workflows.
 
 ## Components
 
@@ -12,8 +12,10 @@ Cloud-hosted MOE Toolkit runtime and local connector for remote CSV analysis wor
 ## Current Scope
 
 - Queue-backed remote execution
-- Curated Docker tools for CSV summaries and chart generation
+- Static curated tool registry with manifest-backed routing
+- Curated Docker tools for CSV/XLSX summaries, chart generation, spreadsheet export, and Markdown reports
 - File upload, artifact download, and stale-claim recovery
+- Registry search and connector telemetry endpoints for beta debugging
 - Docker Compose deployment for beta cloud environments
 
 ## User Install
