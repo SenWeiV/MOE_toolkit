@@ -5,8 +5,10 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import shlex
 import shutil
 import sys
+from dataclasses import dataclass
 from importlib.metadata import version
 from pathlib import Path
 from typing import Any
@@ -37,6 +39,21 @@ EXIT_RUN_FAILED = 5
 EXIT_NETWORK = 6
 
 LEGACY_COMMANDS = {"configure", "install", "uninstall", "serve", "openclaw"}
+REPL_PROMPT = "moeskills> "
+REPL_SESSION_FLAG_MAP = {
+    "config_path": "--config-path",
+    "output_dir": "--output-dir",
+    "workspace_path": "--workspace-path",
+    "host_client": "--host-client",
+}
+
+
+@dataclass
+class ReplSessionState:
+    config_path: str | None = None
+    output_dir: str | None = None
+    workspace_path: str | None = None
+    host_client: str | None = None
 
 
 def _json_default(value: Any) -> Any:
@@ -146,6 +163,12 @@ def build_parser(prog_name: str) -> argparse.ArgumentParser:
     runs_get.add_argument("--config-path", default=str(DEFAULT_CONFIG_PATH))
     runs_get.add_argument("--json", action="store_true")
 
+    runs_wait = runs_subparsers.add_parser("wait")
+    runs_wait.add_argument("run_id")
+    runs_wait.add_argument("--config-path", default=str(DEFAULT_CONFIG_PATH))
+    runs_wait.add_argument("--output-dir", default=None)
+    runs_wait.add_argument("--json", action="store_true")
+
     artifacts = subparsers.add_parser("artifacts")
     artifacts_subparsers = artifacts.add_subparsers(dest="artifacts_command", required=True)
     artifacts_list = artifacts_subparsers.add_parser("list")
@@ -209,6 +232,12 @@ def build_parser(prog_name: str) -> argparse.ArgumentParser:
     host_serve = host_subparsers.add_parser("serve")
     host_serve.add_argument("--host", choices=STDIO_HOST_CHOICES, required=False)
     host_serve.add_argument("--config-path", default=str(DEFAULT_CONFIG_PATH))
+
+    shell = subparsers.add_parser("shell")
+    shell.add_argument("--config-path", default=None)
+    shell.add_argument("--output-dir", default=None)
+    shell.add_argument("--workspace-path", default=None)
+    shell.add_argument("--host-client", choices=HOST_CLIENT_CHOICES, default=None)
 
     legacy_configure = subparsers.add_parser("configure", help=argparse.SUPPRESS)
     legacy_configure.add_argument("--server-url", required=True)
@@ -291,6 +320,182 @@ def resolve_cli_command(command_path: str | None) -> str:
     if argv_path.exists():
         return str(argv_path.resolve())
     return "moeskills"
+
+
+def _is_interactive_terminal() -> bool:
+    return sys.stdin.isatty() and sys.stdout.isatty()
+
+
+def _repl_help_lines() -> list[str]:
+    return [
+        "Interactive mode commands:",
+        "  help                       Show this help text.",
+        "  state                      Show remembered defaults for this session.",
+        "  use config <path>          Remember --config-path for later commands.",
+        "  use output-dir <path>      Remember --output-dir for later commands.",
+        "  use workspace <path>       Remember --workspace-path for later commands.",
+        "  use host-client <name>     Remember --host-client for later commands.",
+        "  reset                      Clear all remembered defaults.",
+        "  exit | quit                Leave interactive mode.",
+        "Any other line is executed as a normal `moeskills` command.",
+    ]
+
+
+def _print_repl_help(print_fn=print) -> None:
+    for line in _repl_help_lines():
+        print_fn(line)
+
+
+def _parse_repl_builtin(tokens: list[str], session: ReplSessionState, *, print_fn=print) -> bool | None:
+    if not tokens:
+        return True
+    command = tokens[0]
+    if command in {"exit", "quit"}:
+        return False
+    if command == "help":
+        _print_repl_help(print_fn=print_fn)
+        return True
+    if command == "state":
+        print_fn(
+            json.dumps(
+                {
+                    "config_path": session.config_path,
+                    "output_dir": session.output_dir,
+                    "workspace_path": session.workspace_path,
+                    "host_client": session.host_client,
+                },
+                ensure_ascii=True,
+            )
+        )
+        return True
+    if command == "reset":
+        session.config_path = None
+        session.output_dir = None
+        session.workspace_path = None
+        session.host_client = None
+        print_fn("Session defaults cleared.")
+        return True
+    if command != "use":
+        return None
+
+    if len(tokens) < 3:
+        print_fn("Usage: use <config|output-dir|workspace|host-client> <value>")
+        return True
+
+    key = tokens[1]
+    value = " ".join(tokens[2:])
+    if key == "config":
+        session.config_path = value
+    elif key == "output-dir":
+        session.output_dir = value
+    elif key == "workspace":
+        session.workspace_path = value
+    elif key == "host-client":
+        if value not in HOST_CLIENT_CHOICES:
+            print_fn(f"host-client must be one of: {', '.join(HOST_CLIENT_CHOICES)}")
+            return True
+        session.host_client = value
+    else:
+        print_fn("Usage: use <config|output-dir|workspace|host-client> <value>")
+        return True
+
+    print_fn(f"Remembered {key}: {value}")
+    return True
+
+
+def _session_supported_keys(tokens: list[str]) -> set[str]:
+    if not tokens:
+        return set()
+
+    command = tokens[0]
+    if command == "config":
+        if len(tokens) > 1 and tokens[1] == "set":
+            return {"config_path", "output_dir", "host_client"}
+        if len(tokens) > 1 and tokens[1] == "show":
+            return {"config_path"}
+    if command == "doctor":
+        return {"config_path", "workspace_path"}
+    if command == "run":
+        return {"config_path", "output_dir", "workspace_path", "host_client"}
+    if command == "runs":
+        if len(tokens) > 1 and tokens[1] == "get":
+            return {"config_path"}
+        if len(tokens) > 1 and tokens[1] == "wait":
+            return {"config_path", "output_dir"}
+    if command == "artifacts":
+        if len(tokens) > 1 and tokens[1] == "list":
+            return {"config_path"}
+        if len(tokens) > 1 and tokens[1] == "download":
+            return {"config_path", "output_dir"}
+    if command == "registry":
+        return {"config_path"}
+    if command == "api":
+        return {"config_path"}
+    if command == "host":
+        if len(tokens) > 1 and tokens[1] in {"install", "doctor"}:
+            return {"config_path", "workspace_path"}
+        if len(tokens) > 1 and tokens[1] == "uninstall":
+            return {"workspace_path"}
+        if len(tokens) > 1 and tokens[1] == "serve":
+            return {"config_path"}
+    if command == "openclaw" and len(tokens) > 1 and tokens[1] == "run":
+        return {"config_path", "workspace_path"}
+    return set()
+
+
+def _apply_repl_session_defaults(tokens: list[str], session: ReplSessionState) -> list[str]:
+    resolved = list(tokens)
+    supported_keys = _session_supported_keys(tokens)
+    for key, flag in REPL_SESSION_FLAG_MAP.items():
+        value = getattr(session, key)
+        if key not in supported_keys or value is None or flag in resolved:
+            continue
+        resolved.extend([flag, value])
+    return resolved
+
+
+def run_repl(
+    *,
+    input_fn=input,
+    print_fn=print,
+    dispatch_command=None,
+    session: ReplSessionState | None = None,
+) -> int:
+    """Runs a lightweight interactive shell around the existing one-shot CLI."""
+
+    session = session or ReplSessionState()
+    dispatch = dispatch_command or main
+    _print_repl_help(print_fn=print_fn)
+
+    while True:
+        try:
+            raw_line = input_fn(REPL_PROMPT)
+        except EOFError:
+            print_fn("")
+            return EXIT_OK
+        except KeyboardInterrupt:
+            print_fn("")
+            continue
+
+        stripped = raw_line.strip()
+        if not stripped:
+            continue
+
+        try:
+            tokens = shlex.split(stripped)
+        except ValueError as exc:
+            print_fn(f"Invalid command line: {exc}")
+            continue
+
+        builtin_result = _parse_repl_builtin(tokens, session, print_fn=print_fn)
+        if builtin_result is False:
+            return EXIT_OK
+        if builtin_result is True:
+            continue
+
+        exit_code = dispatch(_apply_repl_session_defaults(tokens, session))
+        if exit_code not in {EXIT_OK, EXIT_UNSUPPORTED, EXIT_RUN_FAILED, EXIT_NETWORK, EXIT_CONFIG, EXIT_USAGE}:
+            print_fn(f"Command exited with code {exit_code}")
 
 
 def _config_from_args(
@@ -701,6 +906,50 @@ async def get_run_command(
     return _run_exit_code(run)
 
 
+async def wait_for_run_command(
+    run_id: str,
+    *,
+    config_path: Path,
+    output_dir: str | None,
+    json_mode: bool,
+) -> int:
+    """Waits for a run to finish and downloads artifacts on success."""
+
+    try:
+        config = _config_from_args(config_path, allow_missing=True, output_dir=output_dir)
+        config_error = _validate_runtime_config(config, json_mode=json_mode)
+        if config_error is not None:
+            return config_error
+        client = CloudClient(config)
+        run = await client.wait_for_run(run_id)
+        downloaded_paths: list[str] = []
+        if run.status == "success":
+            artifacts = await client.get_artifacts(run.run_id)
+            downloaded_paths = [
+                str(await client.download_artifact(artifact, config.output_dir))
+                for artifact in artifacts
+            ]
+    except (httpx.HTTPError, OSError) as exc:
+        return emit_error(
+            str(exc),
+            exit_code=EXIT_NETWORK,
+            json_mode=json_mode,
+            error_code="cloud_request_failed",
+        )
+
+    payload = _run_payload(run, downloaded_paths=downloaded_paths)
+    if json_mode:
+        print_json(payload)
+    else:
+        print(f"Run {run.run_id}: {run.status}")
+        if downloaded_paths:
+            for path in downloaded_paths:
+                print(path)
+        elif run.detail:
+            print(run.detail)
+    return _run_exit_code(run)
+
+
 async def list_artifacts_command(
     run_id: str,
     *,
@@ -930,9 +1179,26 @@ def main(argv: list[str] | None = None) -> int:
     """Main CLI entrypoint."""
 
     prog_name = Path(sys.argv[0]).name or "moeskills"
+    argv = list(sys.argv[1:] if argv is None else argv)
+    if not argv:
+        if _is_interactive_terminal():
+            return run_repl()
+        parser = build_parser(prog_name)
+        parser.print_help(sys.stderr)
+        return EXIT_USAGE
     parser = build_parser(prog_name)
     args = parser.parse_args(argv)
     maybe_warn_legacy_invocation(args.command)
+
+    if args.command == "shell":
+        return run_repl(
+            session=ReplSessionState(
+                config_path=args.config_path,
+                output_dir=args.output_dir,
+                workspace_path=args.workspace_path,
+                host_client=args.host_client,
+            )
+        )
 
     if args.command == "configure":
         args.json = False
@@ -976,6 +1242,15 @@ def main(argv: list[str] | None = None) -> int:
         )
     if args.command == "runs" and args.runs_command == "get":
         return asyncio.run(get_run_command(args.run_id, config_path=Path(args.config_path), json_mode=args.json))
+    if args.command == "runs" and args.runs_command == "wait":
+        return asyncio.run(
+            wait_for_run_command(
+                args.run_id,
+                config_path=Path(args.config_path),
+                output_dir=args.output_dir,
+                json_mode=args.json,
+            )
+        )
     if args.command == "artifacts" and args.artifacts_command == "list":
         return asyncio.run(
             list_artifacts_command(args.run_id, config_path=Path(args.config_path), json_mode=args.json)

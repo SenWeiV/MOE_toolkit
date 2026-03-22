@@ -516,3 +516,117 @@ def test_cli_openclaw_run_rejects_attachments_outside_workspace(tmp_path: Path, 
     payload = json.loads(captured.out)
     assert payload["error_code"] == "invalid_runtime_input"
     assert "must stay inside the OpenClaw workspace" in payload["message"]
+
+
+def test_cli_runs_wait_downloads_artifacts_and_returns_json(tmp_path: Path, monkeypatch, capsys) -> None:
+    config_path = tmp_path / "connector.toml"
+    output_dir = tmp_path / "outputs"
+    cli_module.main(
+        [
+            "config",
+            "set",
+            "--server-url",
+            "http://127.0.0.1:8080",
+            "--api-key",
+            "secret-key",
+            "--output-dir",
+            str(output_dir),
+            "--config-path",
+            str(config_path),
+        ]
+    )
+    capsys.readouterr()
+
+    async def fake_wait_for_run(self, run_id: str) -> RunRecord:  # noqa: ARG001
+        assert run_id == "run-1"
+        return RunRecord(
+            run_id="run-1",
+            status="success",
+            task="分析这个 CSV 并生成趋势图",
+            route_plan=RoutePlan(
+                plan_id="plan-1",
+                capabilities=["data_analysis"],
+                selected_images=["moe-tool-pandas"],
+                selected_tools=["pandas"],
+                execution_steps=["pandas"],
+                selection_reason="matched",
+                explanation="test",
+            ),
+            artifact_ids=["artifact-1"],
+        )
+
+    async def fake_get_artifacts(self, run_id: str) -> list[ArtifactRef]:  # noqa: ARG001
+        return [
+            ArtifactRef(
+                artifact_id="artifact-1",
+                run_id="run-1",
+                filename="sales-summary.json",
+                media_type="application/json",
+                size_bytes=2,
+                download_url="http://testserver/v1/artifacts/artifact-1/download",
+            )
+        ]
+
+    async def fake_download_artifact(self, artifact: ArtifactRef, destination_dir: Path) -> Path:  # noqa: ARG001
+        destination_dir.mkdir(parents=True, exist_ok=True)
+        destination = destination_dir / f"{artifact.run_id}-{artifact.filename}"
+        destination.write_text("{}", encoding="utf-8")
+        return destination
+
+    monkeypatch.setattr(cli_module.CloudClient, "wait_for_run", fake_wait_for_run)
+    monkeypatch.setattr(cli_module.CloudClient, "get_artifacts", fake_get_artifacts)
+    monkeypatch.setattr(cli_module.CloudClient, "download_artifact", fake_download_artifact)
+
+    exit_code = cli_module.main(
+        [
+            "runs",
+            "wait",
+            "run-1",
+            "--config-path",
+            str(config_path),
+            "--json",
+        ]
+    )
+    payload = json.loads(capsys.readouterr().out)
+
+    assert exit_code == 0
+    assert payload["status"] == "success"
+    assert payload["run_id"] == "run-1"
+    assert payload["downloaded_paths"] == [str(output_dir / "run-1-sales-summary.json")]
+
+
+def test_cli_repl_applies_session_defaults_to_dispatched_commands(tmp_path: Path) -> None:
+    config_path = tmp_path / "connector.toml"
+    output_dir = tmp_path / "outputs"
+    commands = iter(
+        [
+            f"use config {config_path}",
+            f"use output-dir {output_dir}",
+            "run --task ping",
+            "state",
+            "exit",
+        ]
+    )
+    dispatched: list[list[str]] = []
+    printed: list[str] = []
+
+    def fake_input(_prompt: str) -> str:
+        return next(commands)
+
+    def fake_print(message: str = "") -> None:
+        printed.append(message)
+
+    def fake_dispatch(argv: list[str]) -> int:
+        dispatched.append(argv)
+        return 0
+
+    exit_code = cli_module.run_repl(
+        input_fn=fake_input,
+        print_fn=fake_print,
+        dispatch_command=fake_dispatch,
+    )
+
+    assert exit_code == 0
+    assert dispatched == [["run", "--task", "ping", "--config-path", str(config_path), "--output-dir", str(output_dir)]]
+    assert any("config_path" in line for line in printed)
+    assert any(str(output_dir) in line for line in printed)
